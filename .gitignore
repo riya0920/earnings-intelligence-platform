@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Data (raw filings can be re-downloaded)
+data/raw/
+data/vectorstore/
+data/processed/
+
+# MLflow
+mlruns/
+mlflow_artifacts/
+
+# Notebooks
+notebooks/.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
