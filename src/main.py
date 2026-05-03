@@ -34,6 +34,7 @@ import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 load_dotenv()  # Load .env before anything else reads env vars
 
 import yaml
@@ -88,18 +89,20 @@ def cmd_benchmark(config: dict):
     # Save results summary
     summary = []
     for r in results:
-        summary.append({
-            "config": f"{r.chunking_strategy} × {r.retrieval_strategy}",
-            "L1_entity_coverage": round(r.avg_entity_coverage, 3),
-            "L1_section_accuracy": round(r.avg_section_accuracy, 3),
-            "L2_rubric_overall": round(r.avg_rubric_overall, 2),
-            "L2_groundedness": round(r.avg_rubric_groundedness, 1),
-            "L2_completeness": round(r.avg_rubric_completeness, 1),
-            "L2_citation_quality": round(r.avg_rubric_citation_quality, 1),
-            "L4_gold_claim_coverage": round(r.avg_gold_claim_coverage, 3),
-            "L4_gold_factual_errors": round(r.avg_gold_factual_errors, 1),
-            "composite_score": round(r.composite_score, 3),
-        })
+        summary.append(
+            {
+                "config": f"{r.chunking_strategy} × {r.retrieval_strategy}",
+                "L1_entity_coverage": round(r.avg_entity_coverage, 3),
+                "L1_section_accuracy": round(r.avg_section_accuracy, 3),
+                "L2_rubric_overall": round(r.avg_rubric_overall, 2),
+                "L2_groundedness": round(r.avg_rubric_groundedness, 1),
+                "L2_completeness": round(r.avg_rubric_completeness, 1),
+                "L2_citation_quality": round(r.avg_rubric_citation_quality, 1),
+                "L4_gold_claim_coverage": round(r.avg_gold_claim_coverage, 3),
+                "L4_gold_factual_errors": round(r.avg_gold_factual_errors, 1),
+                "composite_score": round(r.composite_score, 3),
+            }
+        )
 
     output_path = Path("data/processed/benchmark_results.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,14 +197,18 @@ def cmd_compare(config: dict, ticker_a: str, ticker_b: str):
     output_path.mkdir(parents=True, exist_ok=True)
     filepath = output_path / f"{ticker_a}_{ticker_b}_comparison.json"
     with open(filepath, "w") as f:
-        json.dump({
-            "company_a": result.company_a,
-            "company_b": result.company_b,
-            "shared_risks": result.shared_risks,
-            "unique_to_a": result.unique_to_a,
-            "unique_to_b": result.unique_to_b,
-            "analysis": result.analysis,
-        }, f, indent=2)
+        json.dump(
+            {
+                "company_a": result.company_a,
+                "company_b": result.company_b,
+                "shared_risks": result.shared_risks,
+                "unique_to_a": result.unique_to_a,
+                "unique_to_b": result.unique_to_b,
+                "analysis": result.analysis,
+            },
+            f,
+            indent=2,
+        )
     print(f"\nSaved to {filepath}")
 
 
@@ -221,14 +228,24 @@ def cmd_temporal(config: dict, ticker: str):
     output_path.mkdir(parents=True, exist_ok=True)
     filepath = output_path / f"{ticker}_temporal_analysis.json"
     with open(filepath, "w") as f:
-        json.dump([{
-            "company": c.company, "ticker": c.ticker,
-            "earlier_date": c.earlier_date, "later_date": c.later_date,
-            "new_risks": c.new_risks, "removed_risks": c.removed_risks,
-            "escalated_risks": c.escalated_risks,
-            "de_escalated_risks": c.de_escalated_risks,
-            "analysis": c.analysis,
-        } for c in changes], f, indent=2)
+        json.dump(
+            [
+                {
+                    "company": c.company,
+                    "ticker": c.ticker,
+                    "earlier_date": c.earlier_date,
+                    "later_date": c.later_date,
+                    "new_risks": c.new_risks,
+                    "removed_risks": c.removed_risks,
+                    "escalated_risks": c.escalated_risks,
+                    "de_escalated_risks": c.de_escalated_risks,
+                    "analysis": c.analysis,
+                }
+                for c in changes
+            ],
+            f,
+            indent=2,
+        )
     print(f"\nSaved to {filepath}")
 
 
@@ -314,7 +331,9 @@ if __name__ == "__main__":
         cmd_temporal(config, sys.argv[2])
     elif command == "multidoc":
         if len(sys.argv) < 3:
-            print("Usage: python -m src.main multidoc 'Which company has the most severe supply chain risk?'")
+            print(
+                "Usage: python -m src.main multidoc 'Which company has the most severe supply chain risk?'"
+            )
             sys.exit(1)
         cmd_multidoc(config, " ".join(sys.argv[2:]))
     elif command == "diff":

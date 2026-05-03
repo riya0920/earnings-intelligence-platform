@@ -52,7 +52,13 @@ logger = logging.getLogger(__name__)
 EVAL_QUERIES = [
     {
         "question": "What are the main risk factors Apple disclosed in their most recent 10-K?",
-        "expected_entities": ["Apple", "risk", "competition", "supply chain", "regulatory"],
+        "expected_entities": [
+            "Apple",
+            "risk",
+            "competition",
+            "supply chain",
+            "regulatory",
+        ],
         "expected_sections": ["risk_factors"],
     },
     {
@@ -62,17 +68,34 @@ EVAL_QUERIES = [
     },
     {
         "question": "What supply chain risks does NVIDIA discuss in their SEC filings?",
-        "expected_entities": ["NVIDIA", "supply chain", "semiconductor", "manufacturing"],
+        "expected_entities": [
+            "NVIDIA",
+            "supply chain",
+            "semiconductor",
+            "manufacturing",
+        ],
         "expected_sections": ["risk_factors"],
     },
     {
         "question": "Compare the cybersecurity risk disclosures between Meta and Alphabet.",
-        "expected_entities": ["Meta", "Alphabet", "cybersecurity", "data breach", "security"],
+        "expected_entities": [
+            "Meta",
+            "Alphabet",
+            "cybersecurity",
+            "data breach",
+            "security",
+        ],
         "expected_sections": ["risk_factors"],
     },
     {
         "question": "What regulatory risks does Alphabet face according to their 10-K filings?",
-        "expected_entities": ["Alphabet", "Google", "regulatory", "antitrust", "privacy"],
+        "expected_entities": [
+            "Alphabet",
+            "Google",
+            "regulatory",
+            "antitrust",
+            "privacy",
+        ],
         "expected_sections": ["risk_factors"],
     },
     {
@@ -82,7 +105,12 @@ EVAL_QUERIES = [
     },
     {
         "question": "What macroeconomic risks are common across all five companies' filings?",
-        "expected_entities": ["macroeconomic", "inflation", "interest rate", "currency"],
+        "expected_entities": [
+            "macroeconomic",
+            "inflation",
+            "interest rate",
+            "currency",
+        ],
         "expected_sections": ["risk_factors"],
     },
     {
@@ -92,7 +120,13 @@ EVAL_QUERIES = [
     },
     {
         "question": "How has NVIDIA discussed AI-related opportunities and risks in their filings?",
-        "expected_entities": ["NVIDIA", "AI", "artificial intelligence", "data center", "GPU"],
+        "expected_entities": [
+            "NVIDIA",
+            "AI",
+            "artificial intelligence",
+            "data center",
+            "GPU",
+        ],
         "expected_sections": ["risk_factors", "mda", "business_overview"],
     },
     {
@@ -194,9 +228,11 @@ GOLD_SET = [
 # Layer 1: Retrieval Quality Evaluator (No LLM needed)
 # ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class RetrievalQualityScore:
     """Scores from retrieval-only evaluation."""
+
     entity_coverage: float
     section_accuracy: float
     source_diversity: float
@@ -234,15 +270,21 @@ class RetrievalQualityEvaluator:
         # Section accuracy
         expected_sections = set(query_info.get("expected_sections", []))
         if expected_sections:
-            retrieved_sections = set(r.metadata.get("section", "") for r in retrieval_results)
-            section_accuracy = len(expected_sections & retrieved_sections) / len(expected_sections)
+            retrieved_sections = set(
+                r.metadata.get("section", "") for r in retrieval_results
+            )
+            section_accuracy = len(expected_sections & retrieved_sections) / len(
+                expected_sections
+            )
         else:
             section_accuracy = 1.0
 
         # Source diversity
         sources = set()
         for r in retrieval_results:
-            sources.add((r.metadata.get("ticker", "?"), r.metadata.get("filing_date", "?")))
+            sources.add(
+                (r.metadata.get("ticker", "?"), r.metadata.get("filing_date", "?"))
+            )
         source_diversity = min(len(sources) / 5.0, 1.0)
 
         # Average retriever confidence
@@ -261,9 +303,11 @@ class RetrievalQualityEvaluator:
 # Layer 2: LLM-as-Judge with Structured Rubric
 # ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class RubricScore:
     """Detailed rubric scores from LLM judge."""
+
     groundedness: float
     completeness: float
     citation_quality: float
@@ -328,12 +372,16 @@ Return ONLY a JSON object with these exact keys:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": self.RUBRIC_PROMPT.format(
-                        question=question, answer=answer, context=context_text,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": self.RUBRIC_PROMPT.format(
+                            question=question,
+                            answer=answer,
+                            context=context_text,
+                        ),
+                    }
+                ],
                 temperature=0.0,
                 max_tokens=100,
             )
@@ -350,9 +398,11 @@ Return ONLY a JSON object with these exact keys:
 # Layer 3: Pairwise Comparison Evaluator
 # ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class PairwiseResult:
     """Result of a head-to-head comparison between two configs."""
+
     config_a: str
     config_b: str
     question: str
@@ -393,19 +443,28 @@ Return ONLY a JSON object:
         self.model = model
 
     def compare(
-        self, question: str, answer_a: str, answer_b: str,
-        config_a: str, config_b: str,
+        self,
+        question: str,
+        answer_a: str,
+        answer_b: str,
+        config_a: str,
+        config_b: str,
     ) -> PairwiseResult:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": self.COMPARISON_PROMPT.format(
-                        question=question, answer_a=answer_a, answer_b=answer_b,
-                        config_a=config_a, config_b=config_b,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": self.COMPARISON_PROMPT.format(
+                            question=question,
+                            answer_a=answer_a,
+                            answer_b=answer_b,
+                            config_a=config_a,
+                            config_b=config_b,
+                        ),
+                    }
+                ],
                 temperature=0.0,
                 max_tokens=150,
             )
@@ -414,7 +473,9 @@ Return ONLY a JSON object:
                 raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
             data = json.loads(raw)
             return PairwiseResult(
-                config_a=config_a, config_b=config_b, question=question,
+                config_a=config_a,
+                config_b=config_b,
+                question=question,
                 winner=data.get("winner", "tie"),
                 reasoning=data.get("reasoning", ""),
                 confidence=float(data.get("confidence", 3)),
@@ -428,9 +489,11 @@ Return ONLY a JSON object:
 # Layer 4: Gold Set Calibration Evaluator
 # ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class GoldSetScore:
     """Score against a hand-written reference answer."""
+
     question: str
     claims_covered: int
     claims_total: int
@@ -481,13 +544,17 @@ Return ONLY a JSON object:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": self.CLAIM_CHECK_PROMPT.format(
-                        question=question, reference=reference,
-                        answer=answer, claims_list=claims_list,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": self.CLAIM_CHECK_PROMPT.format(
+                            question=question,
+                            reference=reference,
+                            answer=answer,
+                            claims_list=claims_list,
+                        ),
+                    }
+                ],
                 temperature=0.0,
                 max_tokens=200,
             )
@@ -504,12 +571,17 @@ Return ONLY a JSON object:
             # Word overlap as semantic similarity proxy
             ref_words = set(reference.lower().split())
             ans_words = set(answer.lower().split())
-            similarity = len(ref_words & ans_words) / len(ref_words) if ref_words else 0.0
+            similarity = (
+                len(ref_words & ans_words) / len(ref_words) if ref_words else 0.0
+            )
 
             return GoldSetScore(
-                question=question, claims_covered=covered,
-                claims_total=len(key_claims), claim_coverage=round(coverage, 3),
-                factual_errors=wrong, semantic_similarity=round(similarity, 3),
+                question=question,
+                claims_covered=covered,
+                claims_total=len(key_claims),
+                claim_coverage=round(coverage, 3),
+                factual_errors=wrong,
+                semantic_similarity=round(similarity, 3),
             )
         except Exception as e:
             logger.warning(f"Gold set evaluation failed: {e}")
@@ -520,9 +592,11 @@ Return ONLY a JSON object:
 # Unified Evaluation Result
 # ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class EvalResult:
     """Complete evaluation result for a single query across all layers."""
+
     question: str
     answer: str
     contexts: list[str]
@@ -547,6 +621,7 @@ class EvalResult:
 @dataclass
 class BenchmarkResult:
     """Aggregated results for a single (chunking x retrieval) configuration."""
+
     chunking_strategy: str
     retrieval_strategy: str
     num_queries: int
@@ -585,6 +660,7 @@ class BenchmarkResult:
 # ─────────────────────────────────────────────────────────
 # Benchmark Runner
 # ─────────────────────────────────────────────────────────
+
 
 class BenchmarkRunner:
     """Orchestrates the full four-layer evaluation benchmark."""
@@ -639,7 +715,9 @@ class BenchmarkRunner:
 
         # Index
         retrieval_config = self.retrieval_configs.get(retrieval_strategy, {})
-        retrieval_config["collection_suffix"] = f"{chunking_strategy}_{retrieval_strategy}"
+        retrieval_config["collection_suffix"] = (
+            f"{chunking_strategy}_{retrieval_strategy}"
+        )
         retriever = build_retriever(retrieval_strategy, retrieval_config)
         retriever.index(documents)
 
@@ -680,45 +758,77 @@ class BenchmarkRunner:
                 gold_coverage = gold.claim_coverage
                 gold_errors = gold.factual_errors
 
-            individual_results.append(EvalResult(
-                question=eq["question"],
-                answer=gen_answer.answer,
-                contexts=gen_answer.contexts[:3],
-                retrieval_entity_coverage=ret_score.entity_coverage,
-                retrieval_section_accuracy=ret_score.section_accuracy,
-                retrieval_source_diversity=ret_score.source_diversity,
-                rubric_groundedness=rubric.groundedness,
-                rubric_completeness=rubric.completeness,
-                rubric_citation_quality=rubric.citation_quality,
-                rubric_financial_precision=rubric.financial_precision,
-                rubric_coherence=rubric.coherence,
-                rubric_overall=rubric.overall,
-                gold_claim_coverage=gold_coverage,
-                gold_factual_errors=gold_errors,
-                latency_seconds=latency,
-            ))
+            individual_results.append(
+                EvalResult(
+                    question=eq["question"],
+                    answer=gen_answer.answer,
+                    contexts=gen_answer.contexts[:3],
+                    retrieval_entity_coverage=ret_score.entity_coverage,
+                    retrieval_section_accuracy=ret_score.section_accuracy,
+                    retrieval_source_diversity=ret_score.source_diversity,
+                    rubric_groundedness=rubric.groundedness,
+                    rubric_completeness=rubric.completeness,
+                    rubric_citation_quality=rubric.citation_quality,
+                    rubric_financial_precision=rubric.financial_precision,
+                    rubric_coherence=rubric.coherence,
+                    rubric_overall=rubric.overall,
+                    gold_claim_coverage=gold_coverage,
+                    gold_factual_errors=gold_errors,
+                    latency_seconds=latency,
+                )
+            )
             answers_by_question[eq["question"]] = gen_answer.answer
 
         # Aggregate
-        gold_results = [r for r in individual_results if r.gold_claim_coverage is not None]
+        gold_results = [
+            r for r in individual_results if r.gold_claim_coverage is not None
+        ]
 
         benchmark = BenchmarkResult(
             chunking_strategy=chunking_strategy,
             retrieval_strategy=retrieval_strategy,
             num_queries=len(eval_queries),
             num_chunks=len(documents),
-            avg_entity_coverage=float(np.mean([r.retrieval_entity_coverage for r in individual_results])),
-            avg_section_accuracy=float(np.mean([r.retrieval_section_accuracy for r in individual_results])),
-            avg_source_diversity=float(np.mean([r.retrieval_source_diversity for r in individual_results])),
-            avg_rubric_groundedness=float(np.mean([r.rubric_groundedness for r in individual_results])),
-            avg_rubric_completeness=float(np.mean([r.rubric_completeness for r in individual_results])),
-            avg_rubric_citation_quality=float(np.mean([r.rubric_citation_quality for r in individual_results])),
-            avg_rubric_financial_precision=float(np.mean([r.rubric_financial_precision for r in individual_results])),
-            avg_rubric_coherence=float(np.mean([r.rubric_coherence for r in individual_results])),
-            avg_rubric_overall=float(np.mean([r.rubric_overall for r in individual_results])),
-            avg_gold_claim_coverage=float(np.mean([r.gold_claim_coverage for r in gold_results])) if gold_results else 0.0,
-            avg_gold_factual_errors=float(np.mean([r.gold_factual_errors for r in gold_results])) if gold_results else 0.0,
-            avg_latency_seconds=float(np.mean([r.latency_seconds for r in individual_results])),
+            avg_entity_coverage=float(
+                np.mean([r.retrieval_entity_coverage for r in individual_results])
+            ),
+            avg_section_accuracy=float(
+                np.mean([r.retrieval_section_accuracy for r in individual_results])
+            ),
+            avg_source_diversity=float(
+                np.mean([r.retrieval_source_diversity for r in individual_results])
+            ),
+            avg_rubric_groundedness=float(
+                np.mean([r.rubric_groundedness for r in individual_results])
+            ),
+            avg_rubric_completeness=float(
+                np.mean([r.rubric_completeness for r in individual_results])
+            ),
+            avg_rubric_citation_quality=float(
+                np.mean([r.rubric_citation_quality for r in individual_results])
+            ),
+            avg_rubric_financial_precision=float(
+                np.mean([r.rubric_financial_precision for r in individual_results])
+            ),
+            avg_rubric_coherence=float(
+                np.mean([r.rubric_coherence for r in individual_results])
+            ),
+            avg_rubric_overall=float(
+                np.mean([r.rubric_overall for r in individual_results])
+            ),
+            avg_gold_claim_coverage=(
+                float(np.mean([r.gold_claim_coverage for r in gold_results]))
+                if gold_results
+                else 0.0
+            ),
+            avg_gold_factual_errors=(
+                float(np.mean([r.gold_factual_errors for r in gold_results]))
+                if gold_results
+                else 0.0
+            ),
+            avg_latency_seconds=float(
+                np.mean([r.latency_seconds for r in individual_results])
+            ),
             individual_results=individual_results,
         )
 
@@ -745,8 +855,12 @@ class BenchmarkRunner:
 
         # Phase 2: Pairwise on top 4
         if len(results) >= 2:
-            top_configs = sorted(results, key=lambda x: x.avg_rubric_overall, reverse=True)[:4]
-            pairwise_results = self._run_pairwise(top_configs, all_answers, eval_queries)
+            top_configs = sorted(
+                results, key=lambda x: x.avg_rubric_overall, reverse=True
+            )[:4]
+            pairwise_results = self._run_pairwise(
+                top_configs, all_answers, eval_queries
+            )
             self._print_pairwise_summary(pairwise_results)
 
             # Save pairwise results
@@ -759,14 +873,18 @@ class BenchmarkRunner:
         return results
 
     def _run_pairwise(
-        self, top_configs: list[BenchmarkResult],
-        all_answers: dict, eval_queries: list[dict] | None = None,
+        self,
+        top_configs: list[BenchmarkResult],
+        all_answers: dict,
+        eval_queries: list[dict] | None = None,
     ) -> list[PairwiseResult]:
         """Layer 3: Pairwise comparisons between top configs."""
         if eval_queries is None:
             eval_queries = EVAL_QUERIES
 
-        logger.info(f"Running pairwise comparisons on top {len(top_configs)} configs...")
+        logger.info(
+            f"Running pairwise comparisons on top {len(top_configs)} configs..."
+        )
         pairwise_results = []
 
         config_names = [
@@ -781,8 +899,10 @@ class BenchmarkRunner:
                 if answer_a and answer_b:
                     result = self.pairwise_evaluator.compare(
                         question=eq["question"],
-                        answer_a=answer_a, answer_b=answer_b,
-                        config_a=config_a, config_b=config_b,
+                        answer_a=answer_a,
+                        answer_b=answer_b,
+                        config_a=config_a,
+                        config_b=config_b,
                     )
                     pairwise_results.append(result)
 
@@ -806,14 +926,22 @@ class BenchmarkRunner:
             # Layer 2
             mlflow.log_metric("L2_groundedness", benchmark.avg_rubric_groundedness)
             mlflow.log_metric("L2_completeness", benchmark.avg_rubric_completeness)
-            mlflow.log_metric("L2_citation_quality", benchmark.avg_rubric_citation_quality)
-            mlflow.log_metric("L2_financial_precision", benchmark.avg_rubric_financial_precision)
+            mlflow.log_metric(
+                "L2_citation_quality", benchmark.avg_rubric_citation_quality
+            )
+            mlflow.log_metric(
+                "L2_financial_precision", benchmark.avg_rubric_financial_precision
+            )
             mlflow.log_metric("L2_coherence", benchmark.avg_rubric_coherence)
             mlflow.log_metric("L2_rubric_overall", benchmark.avg_rubric_overall)
 
             # Layer 4
-            mlflow.log_metric("L4_gold_claim_coverage", benchmark.avg_gold_claim_coverage)
-            mlflow.log_metric("L4_gold_factual_errors", benchmark.avg_gold_factual_errors)
+            mlflow.log_metric(
+                "L4_gold_claim_coverage", benchmark.avg_gold_claim_coverage
+            )
+            mlflow.log_metric(
+                "L4_gold_factual_errors", benchmark.avg_gold_factual_errors
+            )
 
             # Composite
             mlflow.log_metric("composite_score", benchmark.composite_score)
@@ -821,11 +949,16 @@ class BenchmarkRunner:
 
             # Artifact
             results_json = json.dumps(
-                [asdict(r) for r in benchmark.individual_results], indent=2, default=str,
+                [asdict(r) for r in benchmark.individual_results],
+                indent=2,
+                default=str,
             )
             artifact_path = Path("mlflow_artifacts")
             artifact_path.mkdir(exist_ok=True)
-            result_file = artifact_path / f"{benchmark.chunking_strategy}_{benchmark.retrieval_strategy}.json"
+            result_file = (
+                artifact_path
+                / f"{benchmark.chunking_strategy}_{benchmark.retrieval_strategy}.json"
+            )
             result_file.write_text(results_json)
             mlflow.log_artifact(str(result_file))
 
@@ -864,7 +997,9 @@ class BenchmarkRunner:
 
         print("=" * 130)
         print("L1: EntCov=entity coverage, SecAcc=section accuracy (no LLM, free)")
-        print("L2: Grnd=groundedness, Comp=completeness, Cite=citations, FinP=financial precision, Rubr=overall (1-5)")
+        print(
+            "L2: Grnd=groundedness, Comp=completeness, Cite=citations, FinP=financial precision, Rubr=overall (1-5)"
+        )
         print("L4: GoldCov=claim coverage vs reference, Errs=factual errors")
         print("Score = weighted composite (L1: 25%, L2: 50%, L4: 25%)")
 
@@ -896,7 +1031,9 @@ class BenchmarkRunner:
 
         print(f"{'Config':<35} {'Wins':>6} {'Total':>6} {'Win Rate':>9}")
         print("─" * 60)
-        for config in sorted(wins, key=lambda c: wins[c] / max(total[c], 1), reverse=True):
+        for config in sorted(
+            wins, key=lambda c: wins[c] / max(total[c], 1), reverse=True
+        ):
             rate = wins[config] / max(total[config], 1)
             print(f"{config:<35} {wins[config]:>6.1f} {total[config]:>6} {rate:>8.1%}")
 

@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MultiDocAnswer:
     """Structured result from multi-document QA."""
+
     question: str
     answer: str
     company_evidence: dict[str, list[dict]]
@@ -115,8 +116,11 @@ class MultiDocQA:
 
         for ticker, company_sections in companies.items():
             chunks = self._retrieve_for_company(
-                question, company_sections, top_k_per_company,
-                chunking_strategy, retrieval_strategy,
+                question,
+                company_sections,
+                top_k_per_company,
+                chunking_strategy,
+                retrieval_strategy,
             )
             all_evidence[ticker] = chunks
             total_chunks += len(chunks)
@@ -186,8 +190,10 @@ class MultiDocQA:
         from src.chunking.strategies import get_chunker
         from src.retrieval.retrievers import build_retriever
 
-        chunker_config = self.config.get("chunking", {}).get("strategies", {}).get(
-            chunking_strategy, {"chunk_size": 512, "chunk_overlap": 50}
+        chunker_config = (
+            self.config.get("chunking", {})
+            .get("strategies", {})
+            .get(chunking_strategy, {"chunk_size": 512, "chunk_overlap": 50})
         )
         chunker = get_chunker(chunking_strategy, chunker_config)
         documents = chunker.chunk_sections(sections)
@@ -196,9 +202,12 @@ class MultiDocQA:
             return []
 
         ticker = sections[0].get("ticker", "UNK")
-        ret_config = self.config.get("retrieval", {}).get("strategies", {}).get(
-            retrieval_strategy, {}
-        ).copy()
+        ret_config = (
+            self.config.get("retrieval", {})
+            .get("strategies", {})
+            .get(retrieval_strategy, {})
+            .copy()
+        )
         ret_config["collection_suffix"] = f"multidoc_{ticker}"
         ret_config["embedding_model"] = self.config.get("retrieval", {}).get(
             "embedding_model", "text-embedding-3-small"
@@ -221,9 +230,7 @@ class MultiDocQA:
             for r in results
         ]
 
-    def _format_evidence(
-        self, question: str, evidence: dict[str, list[dict]]
-    ) -> str:
+    def _format_evidence(self, question: str, evidence: dict[str, list[dict]]) -> str:
         """Format retrieved evidence into a structured prompt."""
         parts = [f"QUESTION: {question}\n"]
         parts.append("EVIDENCE FROM SEC 10-K FILINGS:\n")

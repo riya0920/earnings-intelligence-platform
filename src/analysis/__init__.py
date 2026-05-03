@@ -34,9 +34,11 @@ logger = logging.getLogger(__name__)
 # Data Structures
 # ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class CompanyRiskProfile:
     """Risk profile for a single company from a single filing."""
+
     company: str
     ticker: str
     filing_date: str
@@ -47,6 +49,7 @@ class CompanyRiskProfile:
 @dataclass
 class RiskComparison:
     """Head-to-head risk comparison between two companies."""
+
     company_a: str
     company_b: str
     shared_risks: list[dict] = field(default_factory=list)
@@ -58,6 +61,7 @@ class RiskComparison:
 @dataclass
 class TemporalRiskChange:
     """How a company's risk profile changed between two filings."""
+
     company: str
     ticker: str
     earlier_date: str
@@ -72,6 +76,7 @@ class TemporalRiskChange:
 # ─────────────────────────────────────────────────────────
 # Risk Profile Extractor
 # ─────────────────────────────────────────────────────────
+
 
 class RiskProfileExtractor:
     """
@@ -101,7 +106,11 @@ Return ONLY a JSON array:
         self.model = model
 
     def extract_profile(
-        self, content: str, company: str, ticker: str, filing_date: str,
+        self,
+        content: str,
+        company: str,
+        ticker: str,
+        filing_date: str,
     ) -> CompanyRiskProfile:
         """Extract a risk profile from a single filing section."""
         # Truncate long sections
@@ -111,13 +120,17 @@ Return ONLY a JSON array:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": self.EXTRACTION_PROMPT.format(
-                        company=company, ticker=ticker,
-                        filing_date=filing_date, text=content,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": self.EXTRACTION_PROMPT.format(
+                            company=company,
+                            ticker=ticker,
+                            filing_date=filing_date,
+                            text=content,
+                        ),
+                    }
+                ],
                 temperature=0.0,
                 max_tokens=2000,
             )
@@ -128,17 +141,22 @@ Return ONLY a JSON array:
             risks = json.loads(raw)
 
             return CompanyRiskProfile(
-                company=company, ticker=ticker,
-                filing_date=filing_date, risks=risks,
+                company=company,
+                ticker=ticker,
+                filing_date=filing_date,
+                risks=risks,
             )
         except Exception as e:
             logger.warning(f"Risk extraction failed for {ticker} {filing_date}: {e}")
-            return CompanyRiskProfile(company=company, ticker=ticker, filing_date=filing_date)
+            return CompanyRiskProfile(
+                company=company, ticker=ticker, filing_date=filing_date
+            )
 
 
 # ─────────────────────────────────────────────────────────
 # Cross-Company Comparison
 # ─────────────────────────────────────────────────────────
+
 
 class CrossCompanyAnalyzer:
     """
@@ -235,15 +253,21 @@ Return ONLY a JSON object:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": self.COMPARISON_PROMPT.format(
-                        company_a=profile_a.company, ticker_a=profile_a.ticker,
-                        date_a=profile_a.filing_date, risks_a=risks_a_text,
-                        company_b=profile_b.company, ticker_b=profile_b.ticker,
-                        date_b=profile_b.filing_date, risks_b=risks_b_text,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": self.COMPARISON_PROMPT.format(
+                            company_a=profile_a.company,
+                            ticker_a=profile_a.ticker,
+                            date_a=profile_a.filing_date,
+                            risks_a=risks_a_text,
+                            company_b=profile_b.company,
+                            ticker_b=profile_b.ticker,
+                            date_b=profile_b.filing_date,
+                            risks_b=risks_b_text,
+                        ),
+                    }
+                ],
                 temperature=0.1,
                 max_tokens=2000,
             )
@@ -272,17 +296,18 @@ Return ONLY a JSON object:
     @staticmethod
     def _get_latest_risk_section(sections: list[dict]) -> dict | None:
         """Get the most recent risk_factors section."""
-        risk_sections = [
-            s for s in sections if s.get("section_name") == "risk_factors"
-        ]
+        risk_sections = [s for s in sections if s.get("section_name") == "risk_factors"]
         if not risk_sections:
             return None
-        return sorted(risk_sections, key=lambda s: s.get("filing_date", ""), reverse=True)[0]
+        return sorted(
+            risk_sections, key=lambda s: s.get("filing_date", ""), reverse=True
+        )[0]
 
 
 # ─────────────────────────────────────────────────────────
 # Temporal Analysis
 # ─────────────────────────────────────────────────────────
+
 
 class TemporalAnalyzer:
     """
@@ -345,7 +370,9 @@ Return ONLY a JSON object:
         )
 
         if len(risk_sections) < 2:
-            logger.warning(f"Need at least 2 risk factor filings for {ticker}, found {len(risk_sections)}")
+            logger.warning(
+                f"Need at least 2 risk factor filings for {ticker}, found {len(risk_sections)}"
+            )
             return []
 
         # Extract risk profiles for each filing
@@ -388,16 +415,19 @@ Return ONLY a JSON object:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": self.TEMPORAL_PROMPT.format(
-                        company=earlier.company, ticker=earlier.ticker,
-                        earlier_date=earlier.filing_date,
-                        later_date=later.filing_date,
-                        earlier_risks=earlier_risks_text,
-                        later_risks=later_risks_text,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": self.TEMPORAL_PROMPT.format(
+                            company=earlier.company,
+                            ticker=earlier.ticker,
+                            earlier_date=earlier.filing_date,
+                            later_date=later.filing_date,
+                            earlier_risks=earlier_risks_text,
+                            later_risks=later_risks_text,
+                        ),
+                    }
+                ],
                 temperature=0.1,
                 max_tokens=2000,
             )
@@ -421,7 +451,8 @@ Return ONLY a JSON object:
         except Exception as e:
             logger.error(f"Temporal analysis failed: {e}")
             return TemporalRiskChange(
-                company=earlier.company, ticker=earlier.ticker,
+                company=earlier.company,
+                ticker=earlier.ticker,
                 earlier_date=earlier.filing_date,
                 later_date=later.filing_date,
                 analysis=f"Analysis failed: {e}",
@@ -431,6 +462,7 @@ Return ONLY a JSON object:
 # ─────────────────────────────────────────────────────────
 # CLI-Friendly Functions
 # ─────────────────────────────────────────────────────────
+
 
 def run_cross_company_comparison(
     all_sections: list[dict],
@@ -446,8 +478,14 @@ def run_cross_company_comparison(
     if not sections_b:
         raise ValueError(f"No sections found for {ticker_b}")
 
-    company_a_info = {"company": sections_a[0].get("company", ticker_a), "ticker": ticker_a}
-    company_b_info = {"company": sections_b[0].get("company", ticker_b), "ticker": ticker_b}
+    company_a_info = {
+        "company": sections_a[0].get("company", ticker_a),
+        "ticker": ticker_a,
+    }
+    company_b_info = {
+        "company": sections_b[0].get("company", ticker_b),
+        "ticker": ticker_b,
+    }
 
     analyzer = CrossCompanyAnalyzer()
     result = analyzer.compare(sections_a, sections_b, company_a_info, company_b_info)
@@ -516,14 +554,18 @@ def run_temporal_analysis(
         if change.escalated_risks:
             print(f"  Escalated ({len(change.escalated_risks)}):")
             for r in change.escalated_risks:
-                print(f"    ↑ [{r.get('category', '?')}] {r.get('summary', '')} "
-                      f"({r.get('from_severity', '?')} → {r.get('to_severity', '?')})")
+                print(
+                    f"    ↑ [{r.get('category', '?')}] {r.get('summary', '')} "
+                    f"({r.get('from_severity', '?')} → {r.get('to_severity', '?')})"
+                )
 
         if change.de_escalated_risks:
             print(f"  De-escalated ({len(change.de_escalated_risks)}):")
             for r in change.de_escalated_risks:
-                print(f"    ↓ [{r.get('category', '?')}] {r.get('summary', '')} "
-                      f"({r.get('from_severity', '?')} → {r.get('to_severity', '?')})")
+                print(
+                    f"    ↓ [{r.get('category', '?')}] {r.get('summary', '')} "
+                    f"({r.get('from_severity', '?')} → {r.get('to_severity', '?')})"
+                )
 
         print(f"\n  Insight: {change.analysis}")
 

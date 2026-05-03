@@ -63,7 +63,9 @@ page = st.sidebar.radio(
 # ─── Page: Query ───
 if page == "Query":
     st.title("Ask a Question")
-    st.markdown("Query SEC 10-K filings using the best RAG configuration (semantic chunking + hybrid retrieval).")
+    st.markdown(
+        "Query SEC 10-K filings using the best RAG configuration (semantic chunking + hybrid retrieval)."
+    )
 
     query = st.text_input(
         "Your question:",
@@ -75,6 +77,7 @@ if page == "Query":
             try:
                 import yaml
                 from dotenv import load_dotenv
+
                 load_dotenv()
 
                 with open("configs/default.yaml") as f:
@@ -84,7 +87,9 @@ if page == "Query":
                 from src.retrieval.retrievers import build_retriever
                 from src.generation.generator import RAGGenerator
 
-                chunker = get_chunker("semantic", config["chunking"]["strategies"]["semantic"])
+                chunker = get_chunker(
+                    "semantic", config["chunking"]["strategies"]["semantic"]
+                )
                 documents = chunker.chunk_sections(sections)
 
                 ret_config = config["retrieval"]["strategies"]["hybrid"]
@@ -107,7 +112,9 @@ if page == "Query":
 
                 st.markdown("---")
                 with st.expander(f"Retrieved {len(answer.contexts)} source chunks"):
-                    for i, (ctx, meta) in enumerate(zip(answer.contexts, answer.context_metadata)):
+                    for i, (ctx, meta) in enumerate(
+                        zip(answer.contexts, answer.context_metadata)
+                    ):
                         st.markdown(
                             f"**Source {i+1}:** {meta.get('company', '?')} | "
                             f"{meta.get('filing_type', '?')} | {meta.get('filing_date', '?')} | "
@@ -137,6 +144,7 @@ elif page == "Risk Comparison":
         with st.spinner(f"Analyzing {ticker_a} vs {ticker_b}..."):
             try:
                 from dotenv import load_dotenv
+
                 load_dotenv()
                 from src.analysis import run_cross_company_comparison
 
@@ -148,20 +156,28 @@ elif page == "Risk Comparison":
                     st.markdown("#### Shared Risks")
                     for r in result.shared_risks:
                         with st.expander(f"🔄 {r.get('category', 'Unknown').title()}"):
-                            st.markdown(f"**{ticker_a}:** {r.get('company_a_framing', 'N/A')}")
-                            st.markdown(f"**{ticker_b}:** {r.get('company_b_framing', 'N/A')}")
+                            st.markdown(
+                                f"**{ticker_a}:** {r.get('company_a_framing', 'N/A')}"
+                            )
+                            st.markdown(
+                                f"**{ticker_b}:** {r.get('company_b_framing', 'N/A')}"
+                            )
 
                 col1, col2 = st.columns(2)
                 with col1:
                     if result.unique_to_a:
                         st.markdown(f"#### Unique to {ticker_a}")
                         for r in result.unique_to_a:
-                            st.markdown(f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}")
+                            st.markdown(
+                                f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}"
+                            )
                 with col2:
                     if result.unique_to_b:
                         st.markdown(f"#### Unique to {ticker_b}")
                         for r in result.unique_to_b:
-                            st.markdown(f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}")
+                            st.markdown(
+                                f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}"
+                            )
 
                 if result.analysis:
                     st.markdown("#### Key Insight")
@@ -185,6 +201,7 @@ elif page == "Temporal Analysis":
         with st.spinner(f"Analyzing {ticker} risk evolution..."):
             try:
                 from dotenv import load_dotenv
+
                 load_dotenv()
                 from src.analysis import run_temporal_analysis
 
@@ -201,7 +218,9 @@ elif page == "Temporal Analysis":
                             if change.new_risks:
                                 st.markdown("**🆕 New Risks**")
                                 for r in change.new_risks:
-                                    st.markdown(f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}")
+                                    st.markdown(
+                                        f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}"
+                                    )
 
                             if change.escalated_risks:
                                 st.markdown("**⬆️ Escalated**")
@@ -215,7 +234,9 @@ elif page == "Temporal Analysis":
                             if change.removed_risks:
                                 st.markdown("**🗑️ Removed Risks**")
                                 for r in change.removed_risks:
-                                    st.markdown(f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}")
+                                    st.markdown(
+                                        f"- **{r.get('category', '?').title()}**: {r.get('summary', '')}"
+                                    )
 
                             if change.de_escalated_risks:
                                 st.markdown("**⬇️ De-escalated**")
@@ -240,7 +261,9 @@ elif page == "Benchmark Results":
 
     results = load_benchmark_results()
     if not results:
-        st.warning("No benchmark results found. Run `python -m src.main benchmark` first.")
+        st.warning(
+            "No benchmark results found. Run `python -m src.main benchmark` first."
+        )
     else:
         import pandas as pd
 
@@ -263,7 +286,9 @@ elif page == "Benchmark Results":
             st.markdown("**Layer 1: Retrieval Quality**")
             if "L1_entity_coverage" in df.columns:
                 st.bar_chart(
-                    df.set_index("config")[["L1_entity_coverage", "L1_section_accuracy"]],
+                    df.set_index("config")[
+                        ["L1_entity_coverage", "L1_section_accuracy"]
+                    ],
                     height=300,
                 )
 
@@ -306,8 +331,12 @@ elif page == "Benchmark Results":
                     wins[r["config_a"]] += 0.5
                     wins[r["config_b"]] += 0.5
 
-            pairwise_df = pd.DataFrame([
-                {"Config": k, "Win Rate": wins[k] / max(total[k], 1)}
-                for k in sorted(wins, key=lambda c: wins[c] / max(total[c], 1), reverse=True)
-            ])
+            pairwise_df = pd.DataFrame(
+                [
+                    {"Config": k, "Win Rate": wins[k] / max(total[k], 1)}
+                    for k in sorted(
+                        wins, key=lambda c: wins[c] / max(total[c], 1), reverse=True
+                    )
+                ]
+            )
             st.bar_chart(pairwise_df.set_index("Config")["Win Rate"], height=300)

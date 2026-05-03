@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FilingSection:
     """A parsed section from a SEC filing."""
+
     company: str
     ticker: str
     cik: str
@@ -47,6 +48,7 @@ class FilingSection:
 @dataclass
 class Filing:
     """A complete SEC filing with all extracted sections."""
+
     company: str
     ticker: str
     cik: str
@@ -109,10 +111,12 @@ class SECEdgarClient:
         self.user_agent = user_agent
         self.rate_limit_delay = rate_limit_delay
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": self.user_agent,
-            "Accept-Encoding": "gzip, deflate",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": self.user_agent,
+                "Accept-Encoding": "gzip, deflate",
+            }
+        )
 
     def _request(self, url: str, params: Optional[dict] = None) -> requests.Response:
         """Make a rate-limited request to SEC EDGAR."""
@@ -156,16 +160,18 @@ class SECEdgarClient:
         for i, form in enumerate(forms):
             if form == filing_type and len(filings) < max_results:
                 accession = accessions[i].replace("-", "")
-                filings.append({
-                    "filing_type": form,
-                    "filing_date": dates[i],
-                    "accession_number": accessions[i],
-                    "primary_document": primary_docs[i],
-                    "url": (
-                        f"{self.FILING_URL}/{cik_padded}/{accession}"
-                        f"/{primary_docs[i]}"
-                    ),
-                })
+                filings.append(
+                    {
+                        "filing_type": form,
+                        "filing_date": dates[i],
+                        "accession_number": accessions[i],
+                        "primary_document": primary_docs[i],
+                        "url": (
+                            f"{self.FILING_URL}/{cik_padded}/{accession}"
+                            f"/{primary_docs[i]}"
+                        ),
+                    }
+                )
 
         logger.info(f"Found {len(filings)} {filing_type} filings for CIK {cik}")
         return filings
@@ -184,10 +190,14 @@ class SECEdgarClient:
         # Remove page numbers and headers/footers
         text = re.sub(r"\n\s*\d+\s*\n", "\n", text)
         # Remove table of contents references
-        text = re.sub(r"(?:table of contents|index)\s*\n", "", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r"(?:table of contents|index)\s*\n", "", text, flags=re.IGNORECASE
+        )
         return text.strip()
 
-    def parse_sections(self, html: str, filing_meta: dict, company_info: dict) -> list[FilingSection]:
+    def parse_sections(
+        self, html: str, filing_meta: dict, company_info: dict
+    ) -> list[FilingSection]:
         """
         Parse a 10-K filing HTML into structured sections.
 
@@ -222,9 +232,7 @@ class SECEdgarClient:
                     url=filing_meta["url"],
                 )
                 sections.append(section)
-                logger.debug(
-                    f"  Extracted {section_name}: {section.word_count} words"
-                )
+                logger.debug(f"  Extracted {section_name}: {section.word_count} words")
             else:
                 logger.debug(f"  Section {section_name} not found or too short")
 
@@ -250,17 +258,19 @@ class SECEdgarClient:
 
                 if next_item and next_item.start() > 200:
                     # Only use next_item boundary if we got meaningful content
-                    content = remaining[:next_item.start()]
+                    content = remaining[: next_item.start()]
                 elif next_item and next_item.start() <= 200:
                     # Too short — the match might be a ToC entry, skip it
                     # Try finding the SECOND occurrence of this pattern
-                    second_match = re.search(pattern, text[match.end():], re.IGNORECASE | re.MULTILINE)
+                    second_match = re.search(
+                        pattern, text[match.end() :], re.IGNORECASE | re.MULTILINE
+                    )
                     if second_match:
                         start2 = match.end() + second_match.end()
                         remaining2 = text[start2:]
                         next_item2 = self.NEXT_SECTION_PATTERN.search(remaining2)
                         if next_item2:
-                            content = remaining2[:next_item2.start()]
+                            content = remaining2[: next_item2.start()]
                         else:
                             content = remaining2[:50000]
                     else:
@@ -287,10 +297,10 @@ class FilingIngestionPipeline:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        user_agent = config.get("user_agent", os.getenv(
-            "SEC_EDGAR_USER_AGENT",
-            "EarningsIntel research@example.com"
-        ))
+        user_agent = config.get(
+            "user_agent",
+            os.getenv("SEC_EDGAR_USER_AGENT", "EarningsIntel research@example.com"),
+        )
         self.client = SECEdgarClient(user_agent=user_agent)
 
     def ingest_company(self, company: dict) -> list[Filing]:

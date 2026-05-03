@@ -30,6 +30,7 @@ except LookupError:
 @dataclass
 class Document:
     """A chunked document with content and metadata."""
+
     content: str
     metadata: dict = field(default_factory=dict)
     embedding: list[float] | None = None
@@ -200,6 +201,7 @@ class SemanticChunker(BaseChunker):
         max_chunk_size: int = 1000,
     ):
         from sentence_transformers import SentenceTransformer
+
         self.model = SentenceTransformer(embedding_model)
         self.similarity_threshold = similarity_threshold
         self.min_chunk_size = min_chunk_size
@@ -212,10 +214,16 @@ class SemanticChunker(BaseChunker):
     def chunk(self, text: str, metadata: dict) -> list[Document]:
         sentences = nltk.sent_tokenize(text)
         if len(sentences) <= 1:
-            return [Document(
-                content=text,
-                metadata={**metadata, "chunk_index": 0, "token_count": len(self.encoder.encode(text))},
-            )]
+            return [
+                Document(
+                    content=text,
+                    metadata={
+                        **metadata,
+                        "chunk_index": 0,
+                        "token_count": len(self.encoder.encode(text)),
+                    },
+                )
+            ]
 
         # Compute embeddings for all sentences
         embeddings = self.model.encode(sentences, show_progress_bar=False)
@@ -247,10 +255,13 @@ class SemanticChunker(BaseChunker):
                     chunk_size=self.max_chunk_size // 2,
                     chunk_overlap=32,
                 )
-                sub_chunks = fallback.chunk(chunk_text, {
-                    **metadata,
-                    "chunk_strategy": "semantic",
-                })
+                sub_chunks = fallback.chunk(
+                    chunk_text,
+                    {
+                        **metadata,
+                        "chunk_strategy": "semantic",
+                    },
+                )
                 for j, sc in enumerate(sub_chunks):
                     sc.metadata["chunk_index"] = len(chunks) + j
                 chunks.extend(sub_chunks)
@@ -270,15 +281,17 @@ class SemanticChunker(BaseChunker):
             chunk_text = " ".join(sentences[prev:])
             token_count = len(self.encoder.encode(chunk_text))
             if token_count >= self.min_chunk_size or not chunks:
-                chunks.append(Document(
-                    content=chunk_text,
-                    metadata={
-                        **metadata,
-                        "chunk_index": len(chunks),
-                        "sentence_count": len(sentences) - prev,
-                        "token_count": token_count,
-                    },
-                ))
+                chunks.append(
+                    Document(
+                        content=chunk_text,
+                        metadata={
+                            **metadata,
+                            "chunk_index": len(chunks),
+                            "sentence_count": len(sentences) - prev,
+                            "token_count": token_count,
+                        },
+                    )
+                )
             elif chunks:
                 last = chunks[-1]
                 last.content += " " + chunk_text
@@ -307,6 +320,8 @@ def get_chunker(strategy: str, config: dict) -> BaseChunker:
     }
 
     if strategy not in chunkers:
-        raise ValueError(f"Unknown strategy '{strategy}'. Options: {list(chunkers.keys())}")
+        raise ValueError(
+            f"Unknown strategy '{strategy}'. Options: {list(chunkers.keys())}"
+        )
 
     return chunkers[strategy]()

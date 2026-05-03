@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RetrievalResult:
     """A single retrieval result with score and metadata."""
+
     content: str
     score: float
     metadata: dict
@@ -90,7 +91,9 @@ class DenseRetriever(BaseRetriever):
         for i in range(0, len(documents), batch_size):
             batch = documents[i : i + batch_size]
             texts = [doc.content for doc in batch]
-            embeddings = self.embed_model.encode(texts, show_progress_bar=False).tolist()
+            embeddings = self.embed_model.encode(
+                texts, show_progress_bar=False
+            ).tolist()
 
             self.collection.add(
                 ids=[f"doc_{i + j}" for j in range(len(batch))],
@@ -113,19 +116,23 @@ class DenseRetriever(BaseRetriever):
         )
 
         retrieval_results = []
-        for rank, (doc, meta, dist) in enumerate(zip(
-            results["documents"][0],
-            results["metadatas"][0],
-            results["distances"][0],
-        )):
+        for rank, (doc, meta, dist) in enumerate(
+            zip(
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+            )
+        ):
             # ChromaDB returns distance; convert to similarity score
             score = 1.0 - dist
-            retrieval_results.append(RetrievalResult(
-                content=doc,
-                score=score,
-                metadata=meta,
-                rank=rank,
-            ))
+            retrieval_results.append(
+                RetrievalResult(
+                    content=doc,
+                    score=score,
+                    metadata=meta,
+                    rank=rank,
+                )
+            )
 
         return retrieval_results
 
@@ -166,12 +173,14 @@ class SparseRetriever(BaseRetriever):
         results = []
         for rank, idx in enumerate(top_indices):
             if scores[idx] > 0:
-                results.append(RetrievalResult(
-                    content=self.documents[idx].content,
-                    score=float(scores[idx]),
-                    metadata=self.documents[idx].metadata,
-                    rank=rank,
-                ))
+                results.append(
+                    RetrievalResult(
+                        content=self.documents[idx].content,
+                        score=float(scores[idx]),
+                        metadata=self.documents[idx].metadata,
+                        rank=rank,
+                    )
+                )
 
         return results
 
@@ -248,12 +257,14 @@ class HybridRetriever(BaseRetriever):
 
         results = []
         for rank, (score, data) in enumerate(scored[:top_k]):
-            results.append(RetrievalResult(
-                content=data["content"],
-                score=score,
-                metadata=data["metadata"],
-                rank=rank,
-            ))
+            results.append(
+                RetrievalResult(
+                    content=data["content"],
+                    score=score,
+                    metadata=data["metadata"],
+                    rank=rank,
+                )
+            )
 
         return results
 
@@ -299,12 +310,14 @@ class RerankedHybridRetriever(BaseRetriever):
 
         results = []
         for rank, (score, candidate) in enumerate(scored[:top_k]):
-            results.append(RetrievalResult(
-                content=candidate.content,
-                score=float(score),
-                metadata=candidate.metadata,
-                rank=rank,
-            ))
+            results.append(
+                RetrievalResult(
+                    content=candidate.content,
+                    score=float(score),
+                    metadata=candidate.metadata,
+                    rank=rank,
+                )
+            )
 
         return results
 
@@ -358,9 +371,13 @@ def build_retriever(strategy: str, config: dict) -> BaseRetriever:
         )
         return RerankedHybridRetriever(
             hybrid_retriever=hybrid,
-            reranker_model=config.get("reranker_model", "cross-encoder/ms-marco-MiniLM-L6-v2"),
+            reranker_model=config.get(
+                "reranker_model", "cross-encoder/ms-marco-MiniLM-L6-v2"
+            ),
             initial_top_k=config.get("top_k", 20),
         )
 
     else:
-        raise ValueError(f"Unknown strategy '{strategy}'. Options: dense, sparse, hybrid, hybrid_reranked")
+        raise ValueError(
+            f"Unknown strategy '{strategy}'. Options: dense, sparse, hybrid, hybrid_reranked"
+        )

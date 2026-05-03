@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GeneratedAnswer:
     """A generated answer with full provenance for evaluation."""
+
     query: str
     answer: str
     contexts: list[str]
@@ -36,6 +37,7 @@ class GeneratedAnswer:
 @dataclass
 class RiskSignal:
     """A structured risk signal extracted from a filing."""
+
     category: str
     severity: str  # "low", "medium", "high", "critical"
     summary: str
@@ -238,16 +240,18 @@ IMPORTANT: Return ONLY the JSON array, no other text."""
 
             signals = []
             for s in signals_data:
-                signals.append(RiskSignal(
-                    category=s.get("category", "unknown"),
-                    severity=s.get("severity", "medium"),
-                    summary=s.get("summary", ""),
-                    evidence=s.get("evidence", ""),
-                    company=metadata.get("company", ""),
-                    ticker=metadata.get("ticker", ""),
-                    filing_date=metadata.get("filing_date", ""),
-                    section=metadata.get("section_name", ""),
-                ))
+                signals.append(
+                    RiskSignal(
+                        category=s.get("category", "unknown"),
+                        severity=s.get("severity", "medium"),
+                        summary=s.get("summary", ""),
+                        evidence=s.get("evidence", ""),
+                        company=metadata.get("company", ""),
+                        ticker=metadata.get("ticker", ""),
+                        filing_date=metadata.get("filing_date", ""),
+                        section=metadata.get("section_name", ""),
+                    )
+                )
 
             logger.info(
                 f"Extracted {len(signals)} risk signals from "
@@ -293,15 +297,18 @@ IMPORTANT: Return ONLY the JSON array, no other text."""
     def signals_to_dataframe(signals: list[RiskSignal]):
         """Convert risk signals to a pandas DataFrame for analysis."""
         import pandas as pd
-        return pd.DataFrame([
-            {
-                "company": s.company,
-                "ticker": s.ticker,
-                "filing_date": s.filing_date,
-                "category": s.category,
-                "severity": s.severity,
-                "summary": s.summary,
-                "evidence": s.evidence[:200],
-            }
-            for s in signals
-        ])
+
+        return pd.DataFrame(
+            [
+                {
+                    "company": s.company,
+                    "ticker": s.ticker,
+                    "filing_date": s.filing_date,
+                    "category": s.category,
+                    "severity": s.severity,
+                    "summary": s.summary,
+                    "evidence": s.evidence[:200],
+                }
+                for s in signals
+            ]
+        )

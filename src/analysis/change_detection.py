@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FilingChange:
     """A single detected change between two filing years."""
+
     change_type: str  # "added" | "removed" | "modified"
     section: str
     severity: str  # "low" | "medium" | "high" | "critical"
@@ -57,6 +58,7 @@ class FilingChange:
 @dataclass
 class ChangeReport:
     """Full change detection report for a company."""
+
     ticker: str
     old_filing_date: str
     new_filing_date: str
@@ -133,14 +135,17 @@ class FilingChangeDetector:
 
         # Step 1: Get this company's sections, sorted by filing date
         company_sections = [
-            s for s in sections
-            if s.get("ticker", "").upper() == ticker.upper()
+            s for s in sections if s.get("ticker", "").upper() == ticker.upper()
         ]
 
         if not company_sections:
             return ChangeReport(
-                ticker=ticker, old_filing_date="", new_filing_date="",
-                section_filter=section_filter, changes=[], summary="No filings found.",
+                ticker=ticker,
+                old_filing_date="",
+                new_filing_date="",
+                section_filter=section_filter,
+                changes=[],
+                summary="No filings found.",
             )
 
         # Group by filing date
@@ -149,9 +154,12 @@ class FilingChangeDetector:
 
         if len(dates) < 2:
             return ChangeReport(
-                ticker=ticker, old_filing_date=dates[0] if dates else "",
-                new_filing_date="", section_filter=section_filter,
-                changes=[], summary="Only one filing available — need at least two for comparison.",
+                ticker=ticker,
+                old_filing_date=dates[0] if dates else "",
+                new_filing_date="",
+                section_filter=section_filter,
+                changes=[],
+                summary="Only one filing available — need at least two for comparison.",
             )
 
         old_date = dates[-2]
@@ -164,11 +172,13 @@ class FilingChangeDetector:
         # Step 2: Filter by section if requested
         if section_filter:
             old_sections = [
-                s for s in old_sections
+                s
+                for s in old_sections
                 if section_filter.lower() in s.get("section", "").lower()
             ]
             new_sections = [
-                s for s in new_sections
+                s
+                for s in new_sections
                 if section_filter.lower() in s.get("section", "").lower()
             ]
 
@@ -180,8 +190,11 @@ class FilingChangeDetector:
 
         if not raw_changes:
             return ChangeReport(
-                ticker=ticker, old_filing_date=old_date, new_filing_date=new_date,
-                section_filter=section_filter, changes=[],
+                ticker=ticker,
+                old_filing_date=old_date,
+                new_filing_date=new_date,
+                section_filter=section_filter,
+                changes=[],
                 summary=f"No material changes detected between {old_date} and {new_date} filings.",
                 latency_seconds=round(time.time() - start_time, 2),
             )
@@ -213,9 +226,7 @@ class FilingChangeDetector:
             latency_seconds=round(latency, 2),
         )
 
-    def _group_by_filing_date(
-        self, sections: list[dict]
-    ) -> dict[str, list[dict]]:
+    def _group_by_filing_date(self, sections: list[dict]) -> dict[str, list[dict]]:
         """Group sections by filing date."""
         by_date: dict[str, list[dict]] = {}
         for s in sections:
@@ -225,9 +236,7 @@ class FilingChangeDetector:
             by_date[date].append(s)
         return by_date
 
-    def _extract_paragraphs(
-        self, sections: list[dict]
-    ) -> list[dict]:
+    def _extract_paragraphs(self, sections: list[dict]) -> list[dict]:
         """
         Break sections into individual paragraphs for granular comparison.
 
@@ -240,16 +249,19 @@ class FilingChangeDetector:
 
             # Split on double newlines or significant whitespace
             raw_paras = [
-                p.strip() for p in content.split("\n\n")
+                p.strip()
+                for p in content.split("\n\n")
                 if p.strip() and len(p.strip()) > 50  # Skip short fragments
             ]
 
             for i, para in enumerate(raw_paras):
-                paragraphs.append({
-                    "text": para,
-                    "section": section_name,
-                    "index": len(paragraphs),
-                })
+                paragraphs.append(
+                    {
+                        "text": para,
+                        "section": section_name,
+                        "index": len(paragraphs),
+                    }
+                )
 
         return paragraphs
 
@@ -293,35 +305,41 @@ class FilingChangeDetector:
             elif best_score >= self.similarity_threshold:
                 # Modified — same topic but different language
                 matched_old_indices.add(best_old_idx)
-                changes.append(FilingChange(
-                    change_type="modified",
-                    section=new_para["section"],
-                    severity="",  # Will be classified by GPT
-                    summary="",
-                    old_text=best_old_para["text"][:800] if best_old_para else None,
-                    new_text=new_para["text"][:800],
-                    similarity_score=round(best_score, 3),
-                ))
+                changes.append(
+                    FilingChange(
+                        change_type="modified",
+                        section=new_para["section"],
+                        severity="",  # Will be classified by GPT
+                        summary="",
+                        old_text=best_old_para["text"][:800] if best_old_para else None,
+                        new_text=new_para["text"][:800],
+                        similarity_score=round(best_score, 3),
+                    )
+                )
             else:
                 # New content — no good match found
-                changes.append(FilingChange(
-                    change_type="added",
-                    section=new_para["section"],
-                    severity="",
-                    summary="",
-                    new_text=new_para["text"][:800],
-                ))
+                changes.append(
+                    FilingChange(
+                        change_type="added",
+                        section=new_para["section"],
+                        severity="",
+                        summary="",
+                        new_text=new_para["text"][:800],
+                    )
+                )
 
         # Find removed paragraphs (old content with no match in new)
         for i, old_para in enumerate(old_paragraphs):
             if i not in matched_old_indices:
-                changes.append(FilingChange(
-                    change_type="removed",
-                    section=old_para["section"],
-                    severity="",
-                    summary="",
-                    old_text=old_para["text"][:800],
-                ))
+                changes.append(
+                    FilingChange(
+                        change_type="removed",
+                        section=old_para["section"],
+                        severity="",
+                        summary="",
+                        old_text=old_para["text"][:800],
+                    )
+                )
 
         logger.info(
             f"Diff results: {sum(1 for c in changes if c.change_type == 'added')} added, "
@@ -439,11 +457,13 @@ def run_change_detection(
     print(f"Latency: {report.latency_seconds}s")
 
     if report.stats:
-        print(f"\nStats: {report.stats.get('added', 0)} added | "
-              f"{report.stats.get('removed', 0)} removed | "
-              f"{report.stats.get('modified', 0)} modified | "
-              f"{report.stats.get('critical', 0)} critical | "
-              f"{report.stats.get('high', 0)} high severity")
+        print(
+            f"\nStats: {report.stats.get('added', 0)} added | "
+            f"{report.stats.get('removed', 0)} removed | "
+            f"{report.stats.get('modified', 0)} modified | "
+            f"{report.stats.get('critical', 0)} critical | "
+            f"{report.stats.get('high', 0)} high severity"
+        )
 
     if report.changes:
         # Print executive summary (stored in first change's analyst_note)
@@ -465,11 +485,16 @@ def run_change_detection(
             icon = {"added": "🟢", "removed": "🔴", "modified": "🟡"}.get(
                 change.change_type, "⚪"
             )
-            sev_icon = {"critical": "🚨", "high": "⚠️", "medium": "📋", "low": "ℹ️"}.get(
-                change.severity, ""
-            )
+            sev_icon = {
+                "critical": "🚨",
+                "high": "⚠️",
+                "medium": "📋",
+                "low": "ℹ️",
+            }.get(change.severity, "")
 
-            print(f"\n  {i}. {icon} {change.change_type.upper()} {sev_icon} [{change.severity}] [{change.category}]")
+            print(
+                f"\n  {i}. {icon} {change.change_type.upper()} {sev_icon} [{change.severity}] [{change.category}]"
+            )
             print(f"     Section: {change.section}")
 
             if change.analyst_note and i > 1:  # Skip first (has executive summary)
@@ -477,17 +502,17 @@ def run_change_detection(
 
             if change.change_type == "added" and change.new_text:
                 preview = change.new_text[:200].replace("\n", " ")
-                print(f"     Added: \"{preview}...\"")
+                print(f'     Added: "{preview}..."')
             elif change.change_type == "removed" and change.old_text:
                 preview = change.old_text[:200].replace("\n", " ")
-                print(f"     Removed: \"{preview}...\"")
+                print(f'     Removed: "{preview}..."')
             elif change.change_type == "modified":
                 if change.old_text:
                     preview = change.old_text[:150].replace("\n", " ")
-                    print(f"     Before: \"{preview}...\"")
+                    print(f'     Before: "{preview}..."')
                 if change.new_text:
                     preview = change.new_text[:150].replace("\n", " ")
-                    print(f"     After:  \"{preview}...\"")
+                    print(f'     After:  "{preview}..."')
                 if change.similarity_score is not None:
                     print(f"     Similarity: {change.similarity_score:.1%}")
 
