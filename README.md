@@ -1,28 +1,24 @@
 # Earnings Intelligence Platform
 
-**A self-evaluating RAG pipeline over SEC 10-K filings and earnings call transcripts — benchmarking chunking strategies, retrieval approaches, and risk signal extraction with RAGAS metrics and MLflow experiment tracking.**
+**A self-evaluating RAG pipeline over SEC 10-K filings and earnings call transcripts. Benchmarks chunking strategies, retrieval approaches, and risk signal extraction with RAGAS metrics and MLflow experiment tracking.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/riya0920/earnings-intelligence-platform/blob/main/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
----
 
 ## What This Project Does
 
-Most RAG projects answer questions. This one answers questions **and measures how well it does that** — across different retrieval strategies, chunking approaches, and configurations.
+Most RAG projects answer questions. This one answers questions **and measures how well it does that** across different retrieval strategies, chunking approaches, and configurations.
 
 The system ingests SEC 10-K filings from major tech companies (AAPL, MSFT, GOOGL, NVDA, META), breaks them into sections (Risk Factors, MD&A, Business Overview), and benchmarks **12 different RAG configurations** (3 chunking strategies × 4 retrieval strategies) using automated evaluation metrics.
 
 ### Key capabilities
 
-- **Multi-strategy retrieval benchmarking** — Compare dense, sparse, hybrid, and hybrid+reranked retrieval with RAGAS metrics across every configuration
-- **Three chunking approaches** — Fixed-size, sentence-based, and semantic chunking with per-strategy evaluation
-- **Risk signal extraction** — Structured extraction of litigation, regulatory, supply chain, macroeconomic, cybersecurity, and competitive risks from filings with severity scoring
-- **Cross-company analysis** — Compare risk disclosures and language across companies ("How does NVIDIA's AI risk discussion differ from Microsoft's?")
-- **Full experiment tracking** — Every config logged to MLflow with metrics, latency, and artifacts
-
----
+* **Multi-strategy retrieval benchmarking**: Compare dense, sparse, hybrid, and hybrid+reranked retrieval with RAGAS metrics across every configuration
+* **Three chunking approaches**: Fixed-size, sentence-based, and semantic chunking with per-strategy evaluation
+* **Risk signal extraction**: Structured extraction of litigation, regulatory, supply chain, macroeconomic, cybersecurity, and competitive risks from filings with severity scoring
+* **Cross-company analysis**: Compare risk disclosures and language across companies (e.g., "How does NVIDIA's AI risk discussion differ from Microsoft's?")
+* **Full experiment tracking**: Every config logged to MLflow with metrics, latency, and artifacts
 
 ## Architecture
 
@@ -40,7 +36,7 @@ The system ingests SEC 10-K filings from major tech companies (AAPL, MSFT, GOOGL
                        │
 ┌──────────────────────▼──────────────────────────────────┐
 │  Retrieval Layer (4 strategies benchmarked)             │
-│  Dense │ Sparse (BM25) │ Hybrid (RRF) │ Hybrid+Reranker│
+│  Dense │ Sparse (BM25) │ Hybrid (RRF) │ Hybrid+Reranker │
 └──────────────────────┬──────────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────────┐
@@ -55,14 +51,12 @@ The system ingests SEC 10-K filings from major tech companies (AAPL, MSFT, GOOGL
 └─────────────────────────────────────────────────────────┘
 ```
 
----
-
 ## Benchmark Results
 
 Results from evaluating 10 financial analysis queries across all 12 configurations:
 
 | Configuration | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Composite |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Semantic × Hybrid+Reranker | **0.92** | **0.87** | **0.85** | **0.82** | **0.870** |
 | Sentence × Hybrid+Reranker | 0.89 | 0.84 | 0.81 | 0.79 | 0.838 |
 | Semantic × Hybrid | 0.87 | 0.83 | 0.79 | 0.77 | 0.820 |
@@ -78,16 +72,14 @@ Results from evaluating 10 financial analysis queries across all 12 configuratio
 
 > *Note: Run `python -m src.main benchmark` to reproduce these results with your own data. Scores will vary based on the specific filings ingested.*
 
-**Key finding:** Semantic chunking consistently outperforms fixed and sentence-based approaches. The reranker adds 3-5% across all metrics — a significant improvement for the marginal compute cost.
-
----
+**Key finding:** Semantic chunking consistently outperforms fixed and sentence-based approaches. The reranker adds 3 to 5% across all metrics, a significant improvement for the marginal compute cost.
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
-- OpenAI API key (for GPT-4o-mini generation and evaluation)
+* Python 3.10+
+* OpenAI API key (for GPT-4o-mini generation and evaluation)
 
 ### Installation
 
@@ -127,8 +119,6 @@ python -m src.main risks
 mlflow ui --port 5000
 ```
 
----
-
 ## Project Structure
 
 ```
@@ -159,22 +149,20 @@ earnings-intelligence-platform/
 └── README.md
 ```
 
----
-
 ## Technical Details
 
 ### Chunking Strategies
 
 | Strategy | Approach | Boundary Logic |
-|---|---|---|
+| --- | --- | --- |
 | **Fixed** | Token-count windows | 512 tokens, 64 token overlap |
-| **Sentence** | NLTK sentence boundaries | Groups of 3-8 sentences |
+| **Sentence** | NLTK sentence boundaries | Groups of 3 to 8 sentences |
 | **Semantic** | Embedding similarity | Splits where cosine similarity drops below 0.75 |
 
 ### Retrieval Approaches
 
 | Strategy | Method | Scoring |
-|---|---|---|
+| --- | --- | --- |
 | **Dense** | Sentence-transformer embeddings + ChromaDB | Cosine similarity |
 | **Sparse** | BM25 (Okapi) keyword matching | TF-IDF variant |
 | **Hybrid** | Dense + Sparse combined | Reciprocal Rank Fusion (k=60) |
@@ -183,22 +171,20 @@ earnings-intelligence-platform/
 ### Evaluation Metrics
 
 | Metric | What It Measures |
-|---|---|
+| --- | --- |
 | **Faithfulness** | Is the answer grounded in the retrieved context? |
 | **Answer Relevancy** | Does the answer address the question? |
 | **Context Precision** | Are the retrieved chunks relevant? |
 | **Context Recall** | Did retrieval capture all necessary information? |
-| **LLM Judge** | GPT-4o-mini quality score (1-5 scale) |
+| **LLM Judge** | GPT-4o-mini quality score (1 to 5 scale) |
 
 ### Risk Signal Categories
 
-The risk extraction module identifies and categorizes: litigation, regulatory, supply chain, macroeconomic, cybersecurity, and competitive risks — each with severity scoring (low/medium/high/critical) and supporting evidence from the filing text.
-
----
+The risk extraction module identifies and categorizes: litigation, regulatory, supply chain, macroeconomic, cybersecurity, and competitive risks. Each is given a severity score (low, medium, high, critical) and supporting evidence from the filing text.
 
 ## Example Queries
 
-```python
+```
 # Factual retrieval
 "What are the main risk factors Apple disclosed in their most recent 10-K?"
 
@@ -212,42 +198,36 @@ The risk extraction module identifies and categorizes: litigation, regulatory, s
 "What litigation risks does Meta currently face?"
 ```
 
----
-
 ## Experiment Tracking
 
 All experiments are logged to MLflow with:
-- **Parameters**: chunking strategy, retrieval strategy, chunk count, model
-- **Metrics**: RAGAS scores, LLM judge scores, latency
-- **Artifacts**: Per-query results with retrieved contexts
+
+* **Parameters**: chunking strategy, retrieval strategy, chunk count, model
+* **Metrics**: RAGAS scores, LLM judge scores, latency
+* **Artifacts**: Per-query results with retrieved contexts
 
 Launch the MLflow dashboard:
+
 ```bash
 mlflow ui --port 5000
 ```
 
----
-
 ## Built With
 
-- **Ingestion**: SEC EDGAR API, BeautifulSoup
-- **Embeddings**: sentence-transformers (all-MiniLM-L6-v2)
-- **Vector Store**: ChromaDB
-- **Sparse Retrieval**: rank-bm25
-- **Reranking**: Cross-encoder (ms-marco-MiniLM-L6-v2)
-- **Generation**: OpenAI GPT-4o-mini
-- **Evaluation**: RAGAS, custom LLM-as-Judge
-- **Tracking**: MLflow
-- **Tokenization**: tiktoken, NLTK
-
----
+* **Ingestion**: SEC EDGAR API, BeautifulSoup
+* **Embeddings**: sentence-transformers (all-MiniLM-L6-v2)
+* **Vector Store**: ChromaDB
+* **Sparse Retrieval**: rank-bm25
+* **Reranking**: Cross-encoder (ms-marco-MiniLM-L6-v2)
+* **Generation**: OpenAI GPT-4o-mini
+* **Evaluation**: RAGAS, custom LLM-as-Judge
+* **Tracking**: MLflow
+* **Tokenization**: tiktoken, NLTK
 
 ## License
 
 MIT
 
----
-
 ## Author
 
-**Riya Soni** — [GitHub](https://github.com/riya0920) · [LinkedIn](https://linkedin.com/in/riya-soni-ml-engineer)
+**Riya Soni** · [GitHub](https://github.com/riya0920) · [LinkedIn](https://linkedin.com/in/riya-soni-ml-engineer)
