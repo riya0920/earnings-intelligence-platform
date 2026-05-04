@@ -56,7 +56,7 @@ st.sidebar.markdown(f"**Companies:** {', '.join(tickers)}")
 
 page = st.sidebar.radio(
     "Navigate",
-    ["Query", "Risk Comparison", "Temporal Analysis", "Benchmark Results"],
+    ["Query", "Verified Query", "Risk Comparison", "Temporal Analysis", "Benchmark Results"],
 )
 
 
@@ -127,6 +127,171 @@ if page == "Query":
 
             except Exception as e:
                 st.error(f"Error: {e}")
+
+
+# ─── Page: Verified Query ───
+elif page == "Verified Query":
+    st.title("Verified Query")
+    st.markdown(
+        "**Quantitative questions with adversarial verification.** "
+        "RAG retrieves the relevant chunks; a multi-agent auditor (Hunter + "
+        "Forensic Auditor + Arbiter) extracts structured numbers and verifies "
+        "every value against the source via three layers of defense — "
+        "heterogeneous models, deterministic provenance, and consistency checks."
+    )
+
+    query = st.text_input(
+        "Your question:",
+        placeholder="What was Apple's revenue in their most recent 10-K?",
+        key="verify_query",
+    )
+
+    if st.button("Verify", type="primary", key="verify_btn") and query:
+        with st.spinner("Retrieving → Hunter || Auditor → verifier → arbiter..."):
+            try:
+                import yaml
+                from dotenv import load_dotenv
+
+                load_dotenv()
+
+                with open("configs/default.yaml") as f:
+                    config = yaml.safe_load(f)
+
+                from src.chunking.strategies import get_chunker
+                from src.retrieval.retrievers import build_retriever
+                from src.generation.verified_generator import VerifiedRAGGenerator
+
+                chunker = get_chunker(
+                    "semantic", config["chunking"]["strategies"]["semantic"]
+                )
+                documents = chunker.chunk_sections(sections)
+
+                ret_config = config["retrieval"]["strategies"]["hybrid_reranked"]
+                ret_config["collection_suffix"] = "streamlit_verify"
+                ret_config["embedding_model"] = config["retrieval"]["embedding_model"]
+                ret_config["vectorstore_path"] = config["retrieval"]["vectorstore_path"]
+                retriever = build_retriever("hybrid_reranked", ret_config)
+                retriever.index(documents)
+
+                results = retriever.retrieve(query, top_k=10)
+
+                generator = VerifiedRAGGenerator(
+                    prose_model=config["generation"]["model"],
+                    prose_temperature=config["generation"]["temperature"],
+                )
+                answer = generator.generate(query, results)
+            except Exception as e:
+                st.error(f"Error: {e}")
+                st.stop()
+
+            # ─── Verification badge ───
+            v = answer.verification
+            badge_text = {
+                "verified": "✅ VERIFIED",
+                "verified_with_warnings": "⚠️ VERIFIED WITH WARNINGS",
+                "disputed": "❌ DISPUTED — values could not be reconciled",
+            }.get(v.status, "⚠️ UNKNOWN")
+            badge_color = {
+                "verified": "#0f7b3d",
+                "verified_with_warnings": "#b07b00",
+                "disputed": "#a8201a",
+            }.get(v.status, "#555555")
+
+            st.markdown(
+                f"<div style='padding:0.75rem 1rem;border-radius:6px;"
+                f"background:{badge_color};color:white;font-weight:600;"
+                f"font-size:1rem;margin-bottom:1rem;'>{badge_text}</div>",
+                unsafe_allow_html=True,
+            )
+
+            cols = st.columns(4)
+            cols[0].metric("Consensus", "yes" if v.consensus_met else "no")
+            cols[1].metric("Iterations", f"{v.iterations}/3")
+            cols[2].metric(
+                "Provenance",
+                "all pass" if v.provenance_all_passed else f"fail ({v.provenance_failed_count})",
+            )
+            cols[3].metric("Anomalies", v.consistency_anomaly_count)
+
+            # ─── Prose answer ───
+            st.markdown("### Prose Answer")
+            st.markdown(answer.answer)
+
+            # ─── Verified structured facts ───
+            if answer.has_quantitative_facts:
+                st.markdown("### Verified Structured Facts")
+                rows = []
+                for f in answer.structured_facts:
+                    cm = f.chunk_metadata or {}
+                    rows.append({
+                        "Field": f.field_name,
+                        "Value": f.value,
+                        "Unit": f.unit,
+                        "Verified": "✓" if f.provenance_verified else "✗",
+                        "Actual?": "yes" if f.is_actual else "no (forecast/guidance)",
+                        "Source": (
+                            f"{cm.get('company','?')} | {cm.get('filing_type','?')} | "
+                            f"{cm.get('filing_date','?')} | {cm.get('section','?')}"
+                        ),
+                        "Chunk": f.chunk_index + 1 if f.chunk_index >= 0 else None,
+                    })
+                st.dataframe(rows, use_container_width=True, hide_index=True)
+
+                with st.expander("Source quotes for each fact"):
+                    for f in answer.structured_facts:
+                        verified_mark = "✓" if f.provenance_verified else "✗"
+                        st.markdown(
+                            f"**{verified_mark} {f.field_name}** = "
+                            f"{f.value} {f.unit}"
+                        )
+                        if f.source_quote:
+                            st.markdown(f"> {f.source_quote}")
+                        st.markdown("---")
+            else:
+                st.info(
+                    "No quantitative facts were extracted. Either this is a "
+                    "qualitative question, or the retrieved chunks contained "
+                    "no numeric values that the auditor could verify. The "
+                    "prose answer above is the response — it just hasn't been "
+                    "verified by the structured layer."
+                )
+
+            # ─── Anomalies ───
+            if answer.consistency_anomalies:
+                st.markdown("### Consistency Anomalies")
+                st.warning(
+                    "The auditor's deterministic checks found mathematical "
+                    "inconsistencies in the extracted values. Each anomaly "
+                    "below indicates at least one extracted primary "
+                    "(revenue / cogs / gross_profit / etc.) is wrong."
+                )
+                for a in answer.consistency_anomalies:
+                    st.markdown(
+                        f"**[{a.get('check','?')}]** {a.get('explanation','')}"
+                    )
+
+            # ─── Retrieved chunks ───
+            with st.expander(f"Retrieved {len(answer.contexts)} source chunks"):
+                for i, (ctx, meta) in enumerate(
+                    zip(answer.contexts, answer.context_metadata), start=1
+                ):
+                    st.markdown(
+                        f"**Chunk {i}:** {meta.get('company','?')} | "
+                        f"{meta.get('filing_type','?')} | "
+                        f"{meta.get('filing_date','?')} | "
+                        f"Section: {meta.get('section','?')}"
+                    )
+                    st.text(ctx[:500] + "..." if len(ctx) > 500 else ctx)
+                    st.markdown("---")
+
+            # ─── Audit log tail ───
+            with st.expander("Audit log (graph trace)"):
+                for line in v.audit_log_tail:
+                    st.text(line)
+                if v.rationale:
+                    st.markdown(f"**Arbiter rationale:** {v.rationale}")
+
+            st.caption(f"Prose tokens: {answer.usage.get('total_tokens', 'N/A')}")
 
 
 # ─── Page: Risk Comparison ───

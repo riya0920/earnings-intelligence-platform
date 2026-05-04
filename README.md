@@ -19,6 +19,93 @@ The system ingests SEC 10-K filings from major tech companies (AAPL, MSFT, GOOGL
 * **Risk signal extraction**: Structured extraction of litigation, regulatory, supply chain, macroeconomic, cybersecurity, and competitive risks from filings with severity scoring
 * **Cross-company analysis**: Compare risk disclosures and language across companies (e.g., "How does NVIDIA's AI risk discussion differ from Microsoft's?")
 * **Full experiment tracking**: Every config logged to MLflow with metrics, latency, and artifacts
+* **Verified numeric extraction**: For quantitative analyst questions, retrieved chunks flow through a vendored multi-agent auditor (Hunter + Forensic Auditor + Arbiter) that returns structured numbers with paragraph-level provenance and three layers of verification
+
+## Verified Extraction Pipeline
+
+EIP's standard `query` flow returns prose. For quantitative questions ("what was Apple's Q3 revenue?"), the prose contains numbers the LLM read off retrieved chunks — *with no verification*. If the LLM grabs a forecast figure instead of an actual, the pipeline confidently emits the wrong number. This is a known production failure mode in financial NLP.
+
+The `verify` flow composes EIP's RAG pipeline with a multi-agent verification layer (vendored under `src/auditor/`):
+
+```
+question
+  │
+  ▼
+RAG retrieval (semantic chunking + hybrid + reranker)
+  │
+  ▼
+top-10 chunks → format as [N] paragraph blocks
+  │
+  ├──────────────────────┬──────────────────────┐
+  ▼                      ▼                      │  parallel
+Hunter (Gemini)      Forensic Auditor (Gemini   │  branches
+optimizes for         or GPT-4o; AUDITOR_MODEL  │  cannot see
+recall                env var)                  │  each other
+extracts every        independently extracts +  │
+metric with verbatim  recomputes derived        │
+provenance            quantities                │
+  │                      │                      │
+  └──────────────────────┴──────────────────────┘
+                         ▼
+        Provenance Verifier (deterministic)
+        regex enumeration of every dollar candidate;
+        every Hunter-cited value must appear at the
+        cited paragraph — defeats hallucination
+                         ▼
+              all passed   |   any failed
+                         ▼   │
+        Arbiter (GPT-4o-mini)│ → dispute → re-extract
+        compares two reports;│
+        deterministic delta  │
+        + Layer 3 consistency│
+        checks: gross_margin │
+        / ebitda_margin /    │
+        net_margin / yoy_    │
+        growth / arithmetic  │
+                         ▼
+        VerifiedAnswer = prose + structured_facts + verification report
+```
+
+### Three layers of defense against shared blind spots
+
+| Layer | Mechanism | Catches |
+|---|---|---|
+| **1. Heterogeneous models** | `AUDITOR_MODEL=gpt-4o` swaps Auditor to a different lab | Shared training-data anchoring biases |
+| **2. Provenance verification** | Regex enumerator + paragraph-level value match | Hallucinated numbers; miscited paragraphs |
+| **3. Consistency checks** | Deterministic Python recompute of margins / growth / arithmetic | Both agents anchoring on the same wrong number when the document also states a margin that reconciles only with the correct value |
+
+The remaining failure surface is narrow and well-characterized: a wrong-but-internally-consistent number that satisfies all stated ratios *and* appears verbatim in the cited paragraph.
+
+### Run a verified query
+
+```bash
+# CLI
+python -m src.main verify "What was Apple's revenue in their most recent 10-K?"
+
+# Streamlit (use the "Verified Query" page)
+streamlit run app.py
+```
+
+Output includes:
+- A verification badge: `VERIFIED` / `VERIFIED WITH WARNINGS` / `DISPUTED`
+- The prose answer (unchanged from standard `query`)
+- A structured-facts table with one row per extracted metric, the verification mark, the source quote, and the chunk+filing the value came from
+- A consistency-anomalies panel if any check fired (and the agents tried to reconcile via the dispute loop)
+- The audit log tail (graph trace)
+
+### Configuration
+
+Set in `.env` or environment:
+
+```bash
+OPENAI_API_KEY=...      # required: prose RAG, GPT-4o-mini Arbiter
+GOOGLE_API_KEY=...      # required: Hunter + (default) Auditor on Gemini 1.5 Pro
+AUDITOR_MODEL=gpt-4o    # optional: enables Layer 1 heterogeneous models
+```
+
+### Standalone auditor
+
+The vendored `src/auditor/` is a snapshot of the standalone Adversarial Financial Auditor. The full standalone repo (with the baseline ladder, Tier C eval set, McNemar tests, and Pareto chart) lives at `github.com/riya0920/adversarial-auditor`. EIP imports the same code as a subpackage; if you want to update the auditor, change `src/auditor/` and re-run.
 
 ## Architecture
 

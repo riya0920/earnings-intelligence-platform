@@ -26,6 +26,9 @@ Usage:
     # Step 8: Filing change detection (year-over-year diff)
     python -m src.main diff NVDA
     python -m src.main diff AAPL --section "Risk Factors"
+
+    # Step 9: Verified query (RAG + multi-agent extraction with provenance)
+    python -m src.main verify "What was Apple's revenue in their most recent 10-K?"
 """
 
 import sys
@@ -273,6 +276,100 @@ def cmd_diff(config: dict, ticker: str, section_filter: str = None):
     run_change_detection(ticker, config, sections, section_filter=section_filter)
 
 
+def cmd_verify(config: dict, question: str):
+    """Run a verified query: RAG retrieval + multi-agent verified extraction.
+
+    Composes EIP's hybrid-reranked retrieval with the vendored auditor's
+    three-layer verification (heterogeneous models, deterministic
+    provenance, consistency checks). Returns prose + structured facts +
+    verification verdict.
+    """
+    from src.chunking.strategies import get_chunker
+    from src.retrieval.retrievers import build_retriever
+    from src.generation.verified_generator import VerifiedRAGGenerator
+
+    sections = _load_all_sections()
+    if not sections:
+        print("No ingested data found. Run 'python -m src.main ingest' first.")
+        return
+
+    print("Chunking documents (semantic)...")
+    chunker = get_chunker("semantic", config["chunking"]["strategies"]["semantic"])
+    documents = chunker.chunk_sections(sections)
+
+    print("Indexing and retrieving (hybrid_reranked)...")
+    retriever_config = config["retrieval"]["strategies"]["hybrid_reranked"]
+    retriever_config["collection_suffix"] = "verify_mode"
+    retriever_config["embedding_model"] = config["retrieval"]["embedding_model"]
+    retriever_config["vectorstore_path"] = config["retrieval"]["vectorstore_path"]
+    retriever = build_retriever("hybrid_reranked", retriever_config)
+    retriever.index(documents)
+
+    results = retriever.retrieve(question, top_k=10)
+
+    print("Running verified extraction (Hunter || Auditor → verifier → arbiter)...")
+    generator = VerifiedRAGGenerator(
+        prose_model=config["generation"]["model"],
+        prose_temperature=config["generation"]["temperature"],
+    )
+    answer = generator.generate(question, results)
+
+    print(f"\n{'=' * 70}")
+    print(f"Question: {question}")
+    print(f"{'=' * 70}")
+
+    # --- Verification verdict --------------------------------------------
+    v = answer.verification
+    badge = {
+        "verified": "[VERIFIED]",
+        "verified_with_warnings": "[VERIFIED w/ WARNINGS]",
+        "disputed": "[DISPUTED]",
+    }.get(v.status, "[UNKNOWN]")
+    print(f"\n{badge}  consensus={v.consensus_met}  iter={v.iterations}/3  "
+          f"prov={'pass' if v.provenance_all_passed else f'fail({v.provenance_failed_count})'}  "
+          f"anomalies={v.consistency_anomaly_count}")
+    if v.consistency_anomaly_checks:
+        print(f"          checks fired: {', '.join(v.consistency_anomaly_checks)}")
+
+    # --- Prose answer ----------------------------------------------------
+    print("\n--- Prose answer ---")
+    print(answer.answer)
+
+    # --- Structured facts ------------------------------------------------
+    if answer.has_quantitative_facts:
+        print("\n--- Verified structured facts ---")
+        for f in answer.structured_facts:
+            mark = "✓" if f.provenance_verified else "✗"
+            cm = f.chunk_metadata
+            origin = (
+                f"{cm.get('company','?')}/{cm.get('filing_type','?')}/"
+                f"{cm.get('filing_date','?')}/{cm.get('section','?')}"
+            )
+            unit = f.unit
+            print(f"  {mark} {f.field_name:<22s} = {f.value:>10.2f} {unit:<14s} "
+                  f"chunk[{f.chunk_index+1 if f.chunk_index >= 0 else '?'}]  {origin}")
+            if f.source_quote:
+                quote = f.source_quote[:90] + "..." if len(f.source_quote) > 90 else f.source_quote
+                print(f"      \"{quote}\"")
+    else:
+        print("\n(No quantitative facts extracted — query may be qualitative, "
+              "or no numeric values were present in retrieved chunks.)")
+
+    # --- Anomalies -------------------------------------------------------
+    if answer.consistency_anomalies:
+        print("\n--- Consistency anomalies ---")
+        for a in answer.consistency_anomalies:
+            print(f"  [{a.get('check','?')}] {a.get('explanation','')}")
+
+    # --- Audit log tail --------------------------------------------------
+    if v.audit_log_tail:
+        print("\n--- Audit log (tail) ---")
+        for line in v.audit_log_tail:
+            print(f"  {line}")
+
+    print(f"\nProse tokens: {answer.usage.get('total_tokens', 'N/A')}")
+
+
 def _load_all_sections() -> list[dict]:
     """Load all ingested filing sections from data/raw/."""
     raw_dir = Path("data/raw")
@@ -346,6 +443,11 @@ if __name__ == "__main__":
             if idx + 1 < len(sys.argv):
                 section_filter = sys.argv[idx + 1]
         cmd_diff(config, sys.argv[2], section_filter)
+    elif command == "verify":
+        if len(sys.argv) < 3:
+            print("Usage: python -m src.main verify 'Your quantitative question'")
+            sys.exit(1)
+        cmd_verify(config, " ".join(sys.argv[2:]))
     else:
         print(f"Unknown command: {command}")
         print(__doc__)

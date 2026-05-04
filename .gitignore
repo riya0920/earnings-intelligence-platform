@@ -33,3 +33,6 @@ notebooks/.ipynb_checkpoints/
 # OS
 .DS_Store
 Thumbs.db
+
+eval/.xbrl_cache/
+eval/smoke.jsonl

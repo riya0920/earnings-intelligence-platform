@@ -27,6 +27,12 @@ torch>=2.1.0
 # LLM generation
 openai>=1.12.0
 
+# Multi-agent verified extraction (vendored auditor — src/auditor/)
+langgraph>=0.2.50
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.0
+pydantic>=2.7
+
 # Evaluation
 ragas>=0.1.7
 datasets>=2.16.0
