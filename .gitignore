@@ -36,3 +36,9 @@ Thumbs.db
 
 eval/.xbrl_cache/
 eval/smoke.jsonl
+
+# Generated SEC corpus (regenerate with: python -m src.main ingest)
+data/raw/
+data/processed/
+data/vectorstore/
+data/raw.backup-*/

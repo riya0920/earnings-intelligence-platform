@@ -95,30 +95,47 @@ FIELD_PHRASES = {
 }
 
 
-def _latest_eip_filing_date(ticker: str) -> Optional[str]:
-    """Return the latest filing_date EIP has for this ticker, or None.
+def _latest_eip_period_end(ticker: str) -> Optional[str]:
+    """Return the latest period_end EIP could possibly have indexed for this ticker.
 
-    EIP's filings JSON has `filing_date` (when the form was filed) but
-    not `period_of_report` (the period the form covers). XBRL has
-    `period_end` for each fact. We use this rule: a Bucket A question
-    is valid if XBRL's period_end is <= EIP's latest filing_date for
-    this ticker. That guarantees EIP could possibly have indexed the
-    period in question.
+    EIP's filings JSON has `filing_date` (the date the form was *filed* with
+    the SEC) but no `period_of_report` field. XBRL has `period_end`. There's
+    a structural lag between when a quarter ends and when the 10-Q gets filed
+    — typically 30-60 days. So we approximate the latest period_end EIP knows
+    about by subtracting a 90-day buffer from the latest filing_date.
+
+    A Bucket A question is valid iff XBRL's period_end <= this cutoff.
+
+    Returns None if no filings exist for the ticker (caller should skip).
     """
+    from datetime import date, timedelta
+
     raw_dir = Path(__file__).parent.parent / "data" / "raw"
-    latest: Optional[str] = None
+    latest_filing: Optional[str] = None
     for fp in raw_dir.glob("*_filings.json"):
         try:
             filings = json.loads(fp.read_text())
-        except (json.JSONDecodeError, FileNotFoundError):
+        except (json.JSONDecodeError, FileNotFoundError, OSError):
             continue
         for filing in filings:
             if filing.get("ticker", "").upper() != ticker.upper():
                 continue
             fd = filing.get("filing_date")
-            if fd and (latest is None or fd > latest):
-                latest = fd
-    return latest
+            if fd and (latest_filing is None or fd > latest_filing):
+                latest_filing = fd
+
+    if latest_filing is None:
+        return None
+
+    # Conservative buffer: assume the latest filing covers a quarter that
+    # ended at most 90 days before the filing date. Better to lose one
+    # quarter on the boundary than to ask about a quarter EIP can't know.
+    try:
+        y, m, d = latest_filing.split("-")
+        cutoff = date(int(y), int(m), int(d)) - timedelta(days=90)
+        return cutoff.isoformat()
+    except (ValueError, AttributeError):
+        return latest_filing  # fallback: trust filing_date directly
 
 
 def _bucket_a_questions() -> list[Question]:
@@ -140,17 +157,26 @@ def _bucket_a_questions() -> list[Question]:
         except Exception as e:
             print(f"  WARN: skipping {ticker} (XBRL fetch failed: {e})")
             continue
-        latest_eip_filing = _latest_eip_filing_date(ticker)
+        latest_eip_period = _latest_eip_period_end(ticker)
         # Filter XBRL quarterly facts to those EIP could possibly know about.
-        if latest_eip_filing:
-            quarterly = [k for k in idx.keys()
-                         if k.fiscal_period in ("Q1", "Q2", "Q3")
-                         and k.period_end <= latest_eip_filing]
-        else:
-            quarterly = [k for k in idx.keys()
+        all_quarterly = [k for k in idx.keys()
                          if k.fiscal_period in ("Q1", "Q2", "Q3")]
-        if not quarterly:
+        if latest_eip_period:
+            quarterly = [k for k in all_quarterly
+                         if k.period_end <= latest_eip_period]
+        else:
+            print(f"  WARN: no EIP filings found for {ticker}; skipping")
             continue
+        if not quarterly:
+            print(f"  WARN: {ticker} has {len(all_quarterly)} XBRL quarters "
+                  f"but none <= {latest_eip_period}; skipping")
+            continue
+        # Show what we filtered out, so we can spot data-staleness early.
+        gated = [k for k in all_quarterly if k.period_end > latest_eip_period]
+        if gated:
+            gated_periods = sorted({k.period_end for k in gated})
+            print(f"  INFO: {ticker} gated {len(gated_periods)} XBRL period(s) "
+                  f"newer than EIP cutoff {latest_eip_period}: {gated_periods}")
         latest_period = max(quarterly, key=lambda k: k.period_end)
         target_period = latest_period.fiscal_period
         target_year = latest_period.fiscal_year

@@ -261,6 +261,10 @@ def _lenient_json_loads(text: str, *, raw_text: str = "") -> Any:
     # Fix 3: smart quotes.
     fixed = (fixed.replace("\u201c", '"').replace("\u201d", '"')
                   .replace("\u2018", "'").replace("\u2019", "'"))
+    # Fix 4: Python-style underscore-separated number literals
+    # ("95_359" → "95359"). Models sometimes emit these for readability.
+    # We only strip underscores between digits to avoid corrupting strings.
+    fixed = re.sub(r"(?<=\d)_(?=\d)", "", fixed)
     try:
         return json.loads(fixed)
     except json.JSONDecodeError as e:
