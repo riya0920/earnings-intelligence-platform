@@ -70,7 +70,7 @@ provenance            quantities                │
 
 | Layer | Mechanism | Catches |
 |---|---|---|
-| **1. Heterogeneous models** | `AUDITOR_MODEL=gpt-4o` swaps Auditor to a different lab | Shared training-data anchoring biases |
+| **1. Heterogeneous models** | Hunter on Gemini (Google), Auditor on gpt-4o-mini (OpenAI) | Shared training-data anchoring biases |
 | **2. Provenance verification** | Regex enumerator + paragraph-level value match | Hallucinated numbers; miscited paragraphs |
 | **3. Consistency checks** | Deterministic Python recompute of margins / growth / arithmetic | Both agents anchoring on the same wrong number when the document also states a margin that reconciles only with the correct value |
 
@@ -98,10 +98,14 @@ Output includes:
 Set in `.env` or environment:
 
 ```bash
-OPENAI_API_KEY=...      # required: prose RAG, GPT-4o-mini Arbiter
-GOOGLE_API_KEY=...      # required: Hunter + (default) Auditor on Gemini 1.5 Pro
-AUDITOR_MODEL=gpt-4o    # optional: enables Layer 1 heterogeneous models
+OPENAI_API_KEY=...           # required: prose RAG, gpt-4o-mini Arbiter & Auditor
+GOOGLE_API_KEY=...           # required: Gemini 2.5 Flash Hunter
+HUNTER_MODEL=gemini-2.5-flash    # optional override; default is gemini-2.5-flash
+AUDITOR_MODEL=gpt-4o-mini        # optional override; default is gpt-4o-mini
+SEC_USER_AGENT="Your Name your@email.com"  # required by SEC EDGAR
 ```
+
+Layer 1 heterogeneity is achieved by Hunter (Gemini, Google) and Auditor (gpt-4o-mini, OpenAI) being on different labs by default. To strengthen heterogeneity further, point AUDITOR_MODEL at any LangChain-compatible non-OpenAI provider.
 
 ### Standalone auditor
 
@@ -160,6 +164,27 @@ Results from evaluating 10 financial analysis queries across all 12 configuratio
 > *Note: Run `python -m src.main benchmark` to reproduce these results with your own data. Scores will vary based on the specific filings ingested.*
 
 **Key finding:** Semantic chunking consistently outperforms fixed and sentence-based approaches. The reranker adds 3 to 5% across all metrics, a significant improvement for the marginal compute cost.
+
+## Numerical Evaluation: Prose RAG vs Verified RAG
+
+The benchmark above measures *retrieval quality* (RAGAS metrics on prose answers). It does not measure whether the prose answers contain *correct numbers*. For that, EIP includes a separate evaluation framework that grounds 31 numerical questions against canonical SEC EDGAR XBRL data and runs both pipelines (prose and verified) head-to-head.
+
+The eval is structured around three buckets, each targeting a specific failure mode:
+
+| Bucket | Questions | Failure mode tested |
+|---|---|---|
+| **A — clean extraction** | 15 | Most-recent-quarter revenue / cost of revenue / net income |
+| **B — period disambiguation** | 10 | Specific past quarter; tests whether the system grabs the most prominent number rather than the requested one |
+| **C — adversarial** | 6 | Either the metric isn't reported (system should refuse) or the period is ambiguous (system should disambiguate) |
+
+Each question's ground truth is the corresponding XBRL fact from SEC EDGAR's Company Facts API. A verdict-typed scorer evaluates both pipelines across the same questions, and McNemar's exact test compares paired pass rates.
+
+**Headline result:** *forthcoming. The full sweep is being run incrementally on Gemini's free tier (~6 verified questions per day). Results section will be updated when the run completes.*
+
+**To reproduce:** see `eval/README.md` for setup, environment variables, and the resume-friendly runner. Once results are in, regenerate the report with:
+```bash
+python -m eval.report --results eval/results.jsonl
+```
 
 ## Quick Start
 
