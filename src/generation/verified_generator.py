@@ -4,30 +4,30 @@ Verified RAG Generator
 
 Composes EIP's existing RAG generation (prose answer over retrieved
 chunks) with the vendored Adversarial Financial Auditor (structured
-numeric extraction with three-layer verification).
+numeric extraction with three-layer verification) and the runtime
+XBRL Reconciliation Agent (canonical-data anchor + delta classifier).
 
 Why this layer exists
 ---------------------
 EIP's `RAGGenerator` returns a prose answer. For quantitative analyst
 questions ("what was Apple's Q3 revenue?"), the prose contains numbers
-that the LLM read off retrieved chunks — with no verification. If the
+that the LLM read off retrieved chunks â€” with no verification. If the
 LLM grabs a forecast figure instead of an actual, EIP confidently
 emits the wrong number.
 
-`VerifiedRAGGenerator` runs the same retrieval, then dual-tracks:
+`VerifiedRAGGenerator` runs the same retrieval, then four-tracks:
   1. Prose track: existing RAGGenerator behavior, unchanged.
   2. Structured track: format the retrieved chunks as a mini-document
-     with `[N]` paragraph markers (where N = chunk rank), feed to the
-     auditor's three-agent graph, get back verified numbers with
-     paragraph citations that map back to the source chunks.
+     with `[N]` paragraph markers, feed to the auditor's three-agent
+     graph, get back verified numbers with paragraph citations.
+  3. Reconciliation track (new): for each verified number, look up
+     the canonical us-gaap XBRL value and classify any delta into
+     one of five known reporting patterns.
+  4. Verification report: assembles status / consensus / anomaly counts.
 
-The "paragraph number" in the auditor's output is the *chunk index*
-in the retrieval results, so the analyst sees provenance like:
-  "revenue $85.8B verified — chunk 3 (AAPL 10-Q, 2024-08-01)"
-
-Composition, not replacement: prose still flows from RAGGenerator;
-structured facts come from the auditor; the verification panel shows
-both alongside.
+The reconciliation step turns "verified extraction" into "verified
+extraction reconciled against structured truth." See
+src/reconciliation/ for the agent and the five-pattern classifier.
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Result type — extends GeneratedAnswer with structured + verification.
+# Result types.
 # ---------------------------------------------------------------------------
 
 
@@ -51,13 +51,13 @@ class StructuredFact:
     """One verified numeric fact extracted from the retrieved context."""
     field_name: str
     value: float
-    unit: str  # e.g. "USD_millions", "percent"
+    unit: str
     source_quote: str
-    chunk_index: int  # index into VerifiedAnswer.contexts
-    chunk_metadata: dict  # company, filing_type, filing_date, section
+    chunk_index: int
+    chunk_metadata: dict
     is_actual: bool
-    confidence: str  # "high" | "medium" | "low"
-    provenance_verified: bool  # passed Layer 2
+    confidence: str
+    provenance_verified: bool
 
     def to_dict(self) -> dict:
         return {
@@ -81,13 +81,12 @@ class VerificationReport:
     provenance_all_passed: bool
     provenance_failed_count: int
     consistency_anomaly_count: int
-    consistency_anomaly_checks: list[str]  # which checks fired
+    consistency_anomaly_checks: list[str]
     audit_log_tail: list[str]
     rationale: Optional[str] = None
 
     @property
     def status(self) -> str:
-        """One-word verdict for UI badges."""
         if self.consensus_met and self.provenance_all_passed and self.consistency_anomaly_count == 0:
             return "verified"
         if self.consensus_met and self.consistency_anomaly_count == 0:
@@ -110,14 +109,17 @@ class VerificationReport:
 
 @dataclass
 class VerifiedAnswer:
-    """Prose answer + verified structured facts + verification report."""
+    """Prose + verified structured facts + verification + reconciliation."""
     query: str
-    answer: str  # prose, from RAGGenerator
+    answer: str
     contexts: list[str]
     context_metadata: list[dict]
     structured_facts: list[StructuredFact]
     verification: VerificationReport
     consistency_anomalies: list[dict] = field(default_factory=list)
+    # ReconciliationReport from src.reconciliation. Typed as Optional to
+    # support graceful degradation if the agent fails or is disabled.
+    reconciliation: Optional[object] = None
     model: str = ""
     usage: dict = field(default_factory=dict)
 
@@ -132,15 +134,7 @@ class VerifiedAnswer:
 
 
 def format_chunks_as_document(retrieval_results: list[RetrievalResult]) -> str:
-    """Format retrieved chunks into the auditor's expected document format.
-
-    The auditor splits documents on `[N]` paragraph markers and uses N
-    as the paragraph_number. By emitting one chunk per `[N]` block, the
-    auditor's "paragraph number" in the final report is exactly the
-    rank-1-indexed position of the chunk in the retrieval results,
-    which is how downstream UIs map verified facts back to source
-    metadata.
-    """
+    """Format retrieved chunks as a [N]-marked document for the auditor."""
     blocks: list[str] = []
     for i, r in enumerate(retrieval_results, start=1):
         meta = r.metadata or {}
@@ -159,8 +153,6 @@ def format_chunks_as_document(retrieval_results: list[RetrievalResult]) -> str:
 # ---------------------------------------------------------------------------
 
 
-# Fields the auditor's HunterReport may populate. Order matches the
-# canonical ordering used in the standalone auditor's eval.
 _DOLLAR_FIELDS = ["revenue", "cogs", "gross_profit", "ebitda", "net_income",
                   "prior_period_revenue"]
 _PCT_FIELDS = ["gross_margin_pct", "ebitda_margin_pct", "net_margin_pct",
@@ -168,18 +160,19 @@ _PCT_FIELDS = ["gross_margin_pct", "ebitda_margin_pct", "net_margin_pct",
 
 
 class VerifiedRAGGenerator:
-    """RAG generator that composes prose generation with verified extraction.
+    """RAG generator: prose + verified extraction + XBRL reconciliation.
 
-    Drop-in replacement for `RAGGenerator` for callers that want
-    structured + verified numbers alongside the prose answer.
+    Composition order (each step is fail-soft):
+      1. Prose track via RAGGenerator (unchanged from base EIP).
+      2. Structured track via the auditor (Hunter+Auditor+Verifier+Arbiter).
+      3. Reconciliation track via the ReconciliationAgent: for each
+         verified fact, looks up the corresponding us-gaap XBRL value
+         and classifies any delta.
 
-    On qualitative queries (no numbers in the retrieved chunks), the
-    auditor returns nulls everywhere, the verification report shows zero
-    structured facts, and the response degrades gracefully to prose-only.
-    Cost on qualitative queries is the auditor's fixed overhead
-    (~$0.008-0.015/query) — accepted as the price of always-on
-    verification, because routing-around adds a misclassification
-    failure mode that defeats the entire point.
+    Failure modes:
+      â€¢ Auditor import/run fails  -> prose-only response with skip reason
+      â€¢ ReconciliationAgent fails -> verified response without reconciliation
+      â€¢ XBRL lookup fails for a field -> that finding is LOOKUP_FAILED
     """
 
     def __init__(
@@ -187,38 +180,28 @@ class VerifiedRAGGenerator:
         prose_model: str = "gpt-4o-mini",
         prose_temperature: float = 0.1,
         prose_max_tokens: int = 1024,
+        reconciliation_enabled: bool = True,
     ):
         self.prose_generator = RAGGenerator(
             model=prose_model,
             temperature=prose_temperature,
             max_tokens=prose_max_tokens,
         )
+        self.reconciliation_enabled = reconciliation_enabled
 
     def generate(
         self,
         query: str,
         retrieval_results: list[RetrievalResult],
     ) -> VerifiedAnswer:
-        """Generate a verified answer from retrieved chunks.
-
-        Runs prose generation and structured extraction in sequence.
-        (Could be parallelized with asyncio, but the auditor's internal
-        Hunter+Auditor branches already parallelize the slow LLM calls,
-        and serial execution makes debugging tractable.)
-        """
-        # 1. Prose track — existing RAGGenerator, unchanged behavior.
+        # 1. Prose track.
         prose = self.prose_generator.generate(query, retrieval_results)
 
-        # 2. Structured track — auditor over the retrieved chunks.
-        # Imported lazily so EIP can run prose-only flows even if the
-        # auditor's heavier deps (langgraph, langchain-google-genai) are
-        # missing.
+        # 2. Structured track (auditor).
         try:
             from src.auditor import run_audit
         except ImportError as e:
-            logger.warning(
-                "Auditor package unavailable (%s); returning prose-only answer.", e
-            )
+            logger.warning("Auditor unavailable (%s); prose-only.", e)
             return self._prose_only(query, prose, retrieval_results,
                                     reason=f"auditor unavailable: {e}")
 
@@ -226,12 +209,17 @@ class VerifiedRAGGenerator:
         try:
             final = run_audit(document)
         except Exception as e:
-            logger.warning("Auditor run failed (%s); returning prose-only.", e)
+            logger.warning("Auditor run failed (%s); prose-only.", e)
             return self._prose_only(query, prose, retrieval_results,
                                     reason=f"auditor failed: {e}")
 
         structured = self._extract_structured_facts(final, retrieval_results)
         verification = self._build_verification_report(final)
+
+        # 3. Reconciliation track (new).
+        reconciliation = None
+        if self.reconciliation_enabled and structured:
+            reconciliation = self._reconcile(structured)
 
         return VerifiedAnswer(
             query=query,
@@ -241,6 +229,7 @@ class VerifiedRAGGenerator:
             structured_facts=structured,
             verification=verification,
             consistency_anomalies=final.get("consistency_anomalies") or [],
+            reconciliation=reconciliation,
             model=prose.model,
             usage=prose.usage,
         )
@@ -248,6 +237,34 @@ class VerifiedRAGGenerator:
     # ------------------------------------------------------------------
     # Internals.
     # ------------------------------------------------------------------
+
+    def _reconcile(self, facts: list[StructuredFact]):
+        """Run XBRL reconciliation. Fail-soft: returns None on error."""
+        try:
+            from src.reconciliation import (
+                ProseFactInput,
+                ReconciliationAgent,
+            )
+        except ImportError as e:
+            logger.warning("Reconciliation unavailable (%s); skipping.", e)
+            return None
+
+        try:
+            agent = ReconciliationAgent()
+            inputs = [
+                ProseFactInput(
+                    field_name=f.field_name,
+                    value=f.value,
+                    unit=f.unit,
+                    source_quote=f.source_quote,
+                    chunk_metadata=f.chunk_metadata,
+                )
+                for f in facts
+            ]
+            return agent.reconcile(inputs)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Reconciliation failed (%s); skipping.", e)
+            return None
 
     def _prose_only(
         self,
@@ -257,7 +274,6 @@ class VerifiedRAGGenerator:
         *,
         reason: str,
     ) -> VerifiedAnswer:
-        """Graceful degradation when the auditor can't run."""
         return VerifiedAnswer(
             query=query,
             answer=prose.answer,
@@ -274,6 +290,7 @@ class VerifiedRAGGenerator:
                 audit_log_tail=[f"[skip] {reason}"],
                 rationale=reason,
             ),
+            reconciliation=None,
             model=prose.model,
             usage=prose.usage,
         )
@@ -283,12 +300,9 @@ class VerifiedRAGGenerator:
         final_state: dict,
         retrieval_results: list[RetrievalResult],
     ) -> list[StructuredFact]:
-        """Walk the Hunter's report and emit one StructuredFact per non-null field."""
         hunter = final_state.get("hunter_report") or {}
         if not isinstance(hunter, dict):
             return []
-
-        # Map provenance verdicts by field for quick lookup.
         prov = (final_state.get("provenance_report") or {}).get("verdicts") or []
         verdict_by_field = {v["field_name"]: v["passed"] for v in prov}
 
@@ -298,9 +312,6 @@ class VerifiedRAGGenerator:
             if not isinstance(m, dict) or m.get("value") is None:
                 continue
             chunk_idx = m.get("paragraph_number")
-            # Auditor's paragraph_number is 1-indexed and equals the
-            # chunk's rank-1-indexed position. Convert to 0-indexed for
-            # list lookup; clamp defensively.
             chunk_meta: dict = {}
             zero_idx = -1
             if isinstance(chunk_idx, int) and 1 <= chunk_idx <= len(retrieval_results):
