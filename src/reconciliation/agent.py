@@ -403,6 +403,36 @@ class ReconciliationAgent:
         return (prose - xbrl) / xbrl * 100.0
 
     @staticmethod
+    def _lookup_failed(
+        fact: ProseFactInput,
+        *,
+        reason: str,
+    ) -> ReconciliationFinding:
+        """Build a LOOKUP_FAILED finding for cases where XBRL has no match.
+
+        Reasons we end up here:
+          â€¢ Ticker not in our CIK map (e.g. unknown company in metadata)
+          â€¢ XBRL has no us-gaap fact for this field (e.g. EBITDA, which
+            isn't a tagged metric for most filers)
+          â€¢ Period-specific lookup miss + fallback lookup also returned None
+
+        LOOKUP_FAILED is a pre-classification failure: we never asked the
+        LLM because there was nothing to compare against. The eval treats
+        these separately from UNEXPLAINED, which is when the LLM punted.
+        """
+        return ReconciliationFinding(
+            field_name=fact.field_name,
+            prose_value=fact.value,
+            xbrl_value=None,
+            xbrl_tag=None,
+            xbrl_period_end=None,
+            delta_pct=None,
+            pattern=DeltaPattern.LOOKUP_FAILED,
+            rationale=reason,
+            human_review_recommended=False,
+        )
+
+    @staticmethod
     def _infer_ticker(facts: list[ProseFactInput]) -> Optional[str]:
         """Pick the most common ticker across the facts' chunk metadata."""
         ticker_map = {
