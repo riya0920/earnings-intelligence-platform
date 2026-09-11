@@ -15,7 +15,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 
-from openai import OpenAI
+from src.backends import chat_model, get_chat_client
 
 from src.retrieval.retrievers import RetrievalResult
 
@@ -75,7 +75,7 @@ Format citations as: [Company, Filing Type, Date, Section]"""
         temperature: float = 0.1,
         max_tokens: int = 1024,
     ):
-        self.client = OpenAI()
+        self.client = get_chat_client()
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -126,7 +126,7 @@ Format citations as: [Company, Filing Type, Date, Section]"""
         ]
 
         response = self.client.chat.completions.create(
-            model=self.model,
+            model=chat_model(self.model),
             messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
@@ -144,7 +144,7 @@ Format citations as: [Company, Filing Type, Date, Section]"""
             answer=answer,
             contexts=[r.content for r in retrieval_results],
             context_metadata=[r.metadata for r in retrieval_results],
-            model=self.model,
+            model=chat_model(self.model),
             usage=usage,
         )
 
@@ -185,7 +185,7 @@ IMPORTANT: Return ONLY the JSON array, no other text."""
         model: str = "gpt-4o-mini",
         temperature: float = 0.0,
     ):
-        self.client = OpenAI()
+        self.client = get_chat_client()
         self.model = model
         self.temperature = temperature
 
@@ -225,7 +225,7 @@ IMPORTANT: Return ONLY the JSON array, no other text."""
 
         try:
             response = self.client.chat.completions.create(
-                model=self.model,
+                model=chat_model(self.model),
                 messages=messages,
                 temperature=self.temperature,
                 max_tokens=2048,

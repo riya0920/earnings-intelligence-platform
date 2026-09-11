@@ -52,3 +52,5 @@ plotly>=5.18.0
 
 # Demo app
 streamlit>=1.30.0
+# Azure backend (optional; Azure OpenAI uses the existing openai SDK)
+azure-search-documents>=11.4.0

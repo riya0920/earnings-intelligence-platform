@@ -142,6 +142,67 @@ The vendored `src/auditor/` is a snapshot of the standalone Adversarial Financia
 └─────────────────────────────────────────────────────────┘
 ```
 
+## Backend switch: local vs Azure
+
+The generation and retrieval layers run on either the default **local** stack
+(ChromaDB + sentence-transformers + OpenAI) or an **Azure** stack (Azure OpenAI +
+Azure AI Search), selected at runtime. The local path is untouched and remains the
+default — Azure is added alongside it, not in place of it.
+
+```bash
+EIP_BACKEND=azure python -m src.main query "What risks did NVIDIA disclose?"
+# or set `backend: azure` in configs/default.yaml
+```
+
+**How it's wired**
+
+- `src/backends.py` — the switch. `get_chat_client()` returns `OpenAI()` locally
+  and `AzureOpenAI(...)` on Azure (the openai SDK ships both; same
+  `.chat.completions.create` / `.embeddings.create` surface). `chat_model()`
+  returns the right `model=` string — on Azure that is the *deployment* name, the
+  one gotcha the module hides from callers.
+- `src/retrieval/retrievers.py::AzureSearchRetriever` — the Azure AI Search
+  counterpart to the ChromaDB retrievers, wired into `build_retriever("azure_search", …)`.
+  It uses Azure AI Search's native **hybrid** query (vector + BM25 in one call),
+  the closest apples-to-apples match to the local `HybridRetriever`.
+- Secrets stay in the environment (`.env`, gitignored); see `.env.example`.
+
+**Setup (one-time, needs an Azure subscription)**
+
+1. Create an **Azure OpenAI** resource; deploy a chat model and an embedding model.
+   Put the *deployment names* in `configs/default.yaml` under `azure.openai.*`.
+2. Create an **Azure AI Search** service (the **F1 free tier** is enough to try).
+3. Fill the `AZURE_OPENAI_*` and `AZURE_SEARCH_*` variables in `.env`
+   (template in `.env.example`).
+
+**What is verified here, and what is not — honestly**
+
+The switch and the Azure AI Search retriever are covered by **12 tests**
+(`tests/test_azure_backend.py`, run with the Azure SDK mocked — no account, no
+network): the switch selects the right client/retriever, and the retriever maps
+Azure results into the project's `RetrievalResult` shape and issues a hybrid query.
+
+A **live retrieval-quality comparison** (local ChromaDB hybrid vs Azure AI Search
+hybrid on the same 10-K corpus) is **not run here**, because Azure OpenAI + Azure
+AI Search require a provisioned subscription this environment does not have, and
+this project's rule is that every reported number is one the code actually
+produced — so rather than print an estimate, the comparison is left as a command
+to run once credentials exist:
+
+```bash
+# local baseline (runs today):
+python -m eval.runner --config hybrid_reranked
+# azure (after provisioning):
+EIP_BACKEND=azure python -m eval.runner --config azure_search
+# then diff the retrieval scores the runner emits for each.
+```
+
+The honest expectation to test, not assume: at this corpus size Azure AI Search's
+managed hybrid should land close to the local hybrid on ranking quality while
+adding network latency and cost — the value of the port is the clean switch and a
+retrieval layer that scales past one machine, not a quality win. That claim gets
+a number the day the account exists; until then it is labelled unmeasured.
+
 ## Benchmark Results
 
 Results from evaluating 10 financial analysis queries across all 12 configurations:

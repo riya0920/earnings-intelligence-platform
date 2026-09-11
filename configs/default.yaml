@@ -6,6 +6,24 @@ project:
   version: "1.0.0"
   description: "Self-evaluating RAG over SEC filings and earnings transcripts"
 
+# Backend switch: run generation + retrieval on the default local/OpenAI stack
+# (ChromaDB + sentence-transformers + OpenAI) or on Azure (Azure OpenAI + Azure
+# AI Search). Env var EIP_BACKEND overrides this. See src/backends.py and the
+# "Azure backend" section of the README.
+backend: "local"   # local | azure
+
+azure:
+  openai:
+    api_version: "2024-06-01"
+    chat_deployment: "gpt-4o-mini"          # your Azure OpenAI *deployment* name
+    embed_deployment: "text-embedding-3-small"
+    # endpoint + key come from env: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY
+  search:
+    index_name: "earnings-filings"
+    embedding_dim: 1536                      # text-embedding-3-small = 1536
+    hybrid: true                             # vector + BM25 in one query
+    # endpoint + key come from env: AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_API_KEY
+
 # Data ingestion settings
 ingestion:
   sec_edgar:
