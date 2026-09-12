@@ -116,6 +116,54 @@ def cmd_benchmark(config: dict):
     print("View MLflow dashboard: mlflow ui --port 5000")
 
 
+def cmd_ragas(config: dict):
+    """Run the real RAGAS benchmark across all 12 configurations over the gold set."""
+    from src.evaluation.benchmark import GOLD_SET
+    from src.evaluation.ragas_eval import run_ragas_benchmark, to_markdown_table
+
+    sections = _load_all_sections()
+    if not sections:
+        print("No ingested data found. Run 'python -m src.main ingest' first.")
+        return
+
+    results = run_ragas_benchmark(
+        sections=sections,
+        chunking_configs=config["chunking"]["strategies"],
+        retrieval_configs=config["retrieval"]["strategies"],
+        generation_config=config["generation"],
+        gold_queries=GOLD_SET,
+        top_k=10,
+    )
+
+    out_path = Path("eval/ragas_results.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(results, f, indent=2)
+
+    table = to_markdown_table(results)
+    print("\n" + table + "\n")
+    print(f"RAGAS results saved to {out_path}")
+
+    # Optional MLflow logging (defensive — never fail the run on tracking).
+    try:
+        import mlflow
+
+        mlflow.set_tracking_uri(config["tracking"].get("tracking_uri", "mlruns"))
+        mlflow.set_experiment(config["tracking"].get("experiment_name", "earnings-intelligence-rag"))
+        for r in results:
+            if r.get("error"):
+                continue
+            with mlflow.start_run(run_name=f"ragas::{r['config']}"):
+                mlflow.log_param("chunking", r["chunking"])
+                mlflow.log_param("retrieval", r["retrieval"])
+                mlflow.log_param("num_queries", r.get("num_queries"))
+                for k in ("faithfulness", "answer_relevancy", "context_precision", "context_recall", "composite"):
+                    if r.get(k) is not None:
+                        mlflow.log_metric(k, r[k])
+    except Exception as e:  # pragma: no cover
+        logger.warning("MLflow logging skipped: %s", e)
+
+
 def cmd_query(config: dict, question: str):
     """Query the RAG pipeline with the best configuration."""
     from src.chunking.strategies import get_chunker
@@ -409,6 +457,8 @@ if __name__ == "__main__":
         cmd_ingest(config)
     elif command == "benchmark":
         cmd_benchmark(config)
+    elif command == "ragas":
+        cmd_ragas(config)
     elif command == "query":
         if len(sys.argv) < 3:
             print("Usage: python -m src.main query 'Your question here'")

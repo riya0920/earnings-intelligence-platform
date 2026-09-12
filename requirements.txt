@@ -34,7 +34,7 @@ langchain-google-genai>=2.0.0
 pydantic>=2.7
 
 # Evaluation
-ragas>=0.1.7
+ragas>=0.2.0
 datasets>=2.16.0
 langchain-openai>=0.1.0
 
