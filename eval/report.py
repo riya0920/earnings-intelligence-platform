@@ -21,7 +21,7 @@ Headline metrics (this is what the README and interview slide quote):
     Bucket B (period disambiguation): expect verified > prose.
     Bucket C (adversarial): expect verified >> prose.
 
-  McNemar's exact test on paired correctness — is the difference
+  McNemar's exact test on paired correctness: is the difference
   between prose and verified statistically significant given n=30?
 
 Usage
@@ -161,7 +161,7 @@ def render_report(rows: list[dict]) -> str:
     by = _by_pipeline(rows)
     lines: list[str] = []
     lines.append("=" * 78)
-    lines.append("VERIFIED RAG vs PROSE RAG — eval results")
+    lines.append("VERIFIED RAG vs PROSE RAG: eval results")
     lines.append("=" * 78)
 
     # Headline pass rate.
@@ -254,7 +254,7 @@ def render_report(rows: list[dict]) -> str:
             for qid in failed_both:
                 lines.append(f"  {qid}")
         else:
-            lines.append("  (none — every question was caught by at least one pipeline)")
+            lines.append("  (none: every question was caught by at least one pipeline)")
 
     lines.append("\n" + "=" * 78)
     return "\n".join(lines)

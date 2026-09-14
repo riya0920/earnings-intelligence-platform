@@ -14,7 +14,7 @@ Graph topology (unchanged from the standalone version):
                   +--------+--------+
                   |                 |
                   v                 v
-               hunter            auditor      (parallel — neither sees the other)
+               hunter            auditor      (parallel: neither sees the other)
                   +--------+--------+
                            v
                        verifier   (Layer 2: deterministic provenance check)

@@ -1,4 +1,4 @@
-# Earnings Intelligence Platform — Dependencies
+# Earnings Intelligence Platform: Dependencies
 # Core
 python-dotenv>=1.0.0
 pyyaml>=6.0
@@ -27,7 +27,7 @@ torch>=2.1.0
 # LLM generation
 openai>=1.12.0
 
-# Multi-agent verified extraction (vendored auditor — src/auditor/)
+# Multi-agent verified extraction (vendored auditor: src/auditor/)
 langgraph>=0.2.50
 langchain-core>=0.3.0
 langchain-google-genai>=2.0.0

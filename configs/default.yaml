@@ -1,4 +1,4 @@
-# Earnings Intelligence Platform — Configuration
+# Earnings Intelligence Platform: Configuration
 # All experiment parameters in one place for reproducibility
 
 project:
@@ -49,7 +49,7 @@ ingestion:
     max_filings_per_company: 4  # Last 4 years
   sections_to_extract:
     - "risk_factors"           # Item 1A
-    - "mda"                    # Item 7 — Management Discussion & Analysis
+    - "mda"                    # Item 7: Management Discussion & Analysis
     - "business_overview"      # Item 1
     - "financial_statements"   # Item 8
 

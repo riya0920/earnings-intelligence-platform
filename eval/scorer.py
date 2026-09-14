@@ -16,18 +16,18 @@ floats in USD millions, with confidence scores reflecting how unambiguous
 each candidate is. We then check whether ANY candidate matches the
 ground-truth value within tolerance.
 
-For the verified pipeline, we don't need regex extraction — we have
+For the verified pipeline, we don't need regex extraction: we have
 structured facts directly. The scorer reads the verified `field` value
 from the structured-facts list.
 
 Verdict types:
-  CORRECT             — number matches ground truth
-  WRONG_NUMBER        — number was extracted but doesn't match ground truth
-  CONFIDENT_WRONG     — number was extracted with high confidence and is wrong
+  CORRECT: number matches ground truth
+  WRONG_NUMBER: number was extracted but doesn't match ground truth
+  CONFIDENT_WRONG: number was extracted with high confidence and is wrong
                         (the most dangerous failure mode for production)
-  NO_NUMBER           — no number extracted (acceptable for AMBIGUOUS/NOT_REPORTED)
-  CORRECTLY_REFUSED   — system explicitly declined to answer (good for NOT_REPORTED)
-  CONFABULATED        — system gave a number for a NOT_REPORTED metric (bad)
+  NO_NUMBER: no number extracted (acceptable for AMBIGUOUS/NOT_REPORTED)
+  CORRECTLY_REFUSED: system explicitly declined to answer (good for NOT_REPORTED)
+  CONFABULATED: system gave a number for a NOT_REPORTED metric (bad)
 
 Each verdict carries a `is_pass` boolean for aggregate metrics.
 """
@@ -92,7 +92,7 @@ def extract_numeric_claims(text: str) -> list[float]:
     """Pull every number from `text`, normalize to USD millions.
 
     Heuristic: only count numbers that have either a `$` prefix or a
-    scale word (million/billion/etc.) — bare integers like "2024" or
+    scale word (million/billion/etc.): bare integers like "2024" or
     "10-Q" are noise. Returns a deduplicated list (within 0.5% relative
     tolerance) sorted by appearance order.
     """
@@ -109,7 +109,7 @@ def extract_numeric_claims(text: str) -> list[float]:
         except ValueError:
             continue
         mult = _SCALE.get(scale.lower(), 1.0) if scale else 1.0
-        # If no scale and a $ prefix, this is bare $123 — could be a share
+        # If no scale and a $ prefix, this is bare $123: could be a share
         # price, EPS, or similar small dollar amount, not a financial-
         # statement number. Real revenues/income/COGS without a scale word
         # would already be in millions and printed as "$143,756" (with
@@ -205,7 +205,7 @@ def score_prose(question: Question, prose_answer: str) -> ScoreDetail:
             notes="No number extracted; treated as implicit refusal.",
         )
 
-    # AMBIGUOUS: any reasonable behavior passes — refuse, OR extract with period label.
+    # AMBIGUOUS: any reasonable behavior passes: refuse, OR extract with period label.
     if refused:
         return ScoreDetail(
             qid=question.qid, pipeline="prose",
@@ -252,7 +252,7 @@ def score_verified(
 
     Uses structured facts directly (no regex extraction needed). The
     verification_status is one of "verified" / "verified_with_warnings" /
-    "disputed". Disputed facts are treated as withheld — system was
+    "disputed". Disputed facts are treated as withheld: system was
     honest about uncertainty.
     """
     # Find the field-matching fact.
@@ -270,7 +270,7 @@ def score_verified(
             # answer is actually in prose.
             return score_prose(question, prose_answer)
         if not fact.get("provenance_verified"):
-            # System extracted but couldn't verify — treat as uncertain.
+            # System extracted but couldn't verify: treat as uncertain.
             if _close(fact["value"], gt):
                 return ScoreDetail(
                     qid=question.qid, pipeline="verified",
@@ -314,7 +314,7 @@ def score_verified(
                 qid=question.qid, pipeline="verified",
                 verdict=Verdict.CORRECTLY_REFUSED, is_pass=True,
                 extracted_value=fact["value"], expected_value=None,
-                notes="Extracted but flagged as disputed — appropriate caution.",
+                notes="Extracted but flagged as disputed: appropriate caution.",
             )
         return ScoreDetail(
             qid=question.qid, pipeline="verified",
@@ -323,7 +323,7 @@ def score_verified(
             notes=f"Confabulated {fact['value']:.1f}M for a non-reported metric.",
         )
 
-    # AMBIGUOUS — verified pipeline passes if it either declined or
+    # AMBIGUOUS: verified pipeline passes if it either declined or
     # produced verified output.
     if fact is None:
         return ScoreDetail(
@@ -337,7 +337,7 @@ def score_verified(
             qid=question.qid, pipeline="verified",
             verdict=Verdict.CORRECT, is_pass=True,
             extracted_value=fact["value"], expected_value=None,
-            notes=("Verified extraction with provenance — period is anchored "
+            notes=("Verified extraction with provenance: period is anchored "
                    "via chunk metadata."),
         )
     return ScoreDetail(

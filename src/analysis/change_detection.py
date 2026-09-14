@@ -11,7 +11,7 @@ Uses a combination of:
   2. GPT-4o-mini to classify and explain material changes
   3. Structured output with severity scoring
 
-This is what SEC analysts do manually — automating it is the kind
+This is what SEC analysts do manually: automating it is the kind
 of signal hedge funds pay for.
 
 Usage:
@@ -159,7 +159,7 @@ class FilingChangeDetector:
                 new_filing_date="",
                 section_filter=section_filter,
                 changes=[],
-                summary="Only one filing available — need at least two for comparison.",
+                summary="Only one filing available: need at least two for comparison.",
             )
 
         old_date = dates[-2]
@@ -300,10 +300,10 @@ class FilingChangeDetector:
                     best_old_para = old_para
 
             if best_score >= self.modification_threshold:
-                # Nearly identical — no material change
+                # Nearly identical: no material change
                 matched_old_indices.add(best_old_idx)
             elif best_score >= self.similarity_threshold:
-                # Modified — same topic but different language
+                # Modified: same topic but different language
                 matched_old_indices.add(best_old_idx)
                 changes.append(
                     FilingChange(
@@ -317,7 +317,7 @@ class FilingChangeDetector:
                     )
                 )
             else:
-                # New content — no good match found
+                # New content: no good match found
                 changes.append(
                     FilingChange(
                         change_type="added",

@@ -5,21 +5,21 @@ Production RAG systems can't rely on a single evaluation method.
 This module implements a layered evaluation strategy where each
 layer catches what the others miss:
 
-Layer 1 — Retrieval Quality (no LLM needed, instant):
+Layer 1: Retrieval Quality (no LLM needed, instant):
     Did the retriever pull relevant chunks? Checks entity coverage,
     topic overlap, and source diversity. Catches retrieval failures
     before wasting money on generation.
 
-Layer 2 — LLM-as-Judge with Rubric (automated, scalable):
+Layer 2: LLM-as-Judge with Rubric (automated, scalable):
     Scores every generated answer on a structured 5-dimension rubric:
     groundedness, completeness, citation quality, financial precision,
     and coherence. No ground truth required.
 
-Layer 3 — Pairwise Comparison (automated, more reliable):
+Layer 3: Pairwise Comparison (automated, more reliable):
     For each query, compares answers from two configs head-to-head.
     Produces more stable rankings than absolute scoring.
 
-Layer 4 — Gold Set Calibration (manual, high-trust):
+Layer 4: Gold Set Calibration (manual, high-trust):
     A small set of 5 queries with hand-written reference answers.
     Used to calibrate and validate the automated metrics.
 
@@ -136,7 +136,7 @@ EVAL_QUERIES = [
     },
 ]
 
-# Layer 4: Gold set — hand-written reference answers for calibration
+# Layer 4: Gold set, hand-written reference answers for calibration
 GOLD_SET = [
     {
         "question": "What are the main risk factors Apple disclosed in their most recent 10-K?",
@@ -330,7 +330,7 @@ class RubricJudge:
     """
     Layer 2: LLM-as-Judge with a structured 5-dimension rubric.
 
-    No ground truth needed — evaluates answer quality purely against
+    No ground truth needed: evaluates answer quality purely against
     the retrieved context and the question.
     """
 

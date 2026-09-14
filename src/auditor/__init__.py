@@ -1,14 +1,14 @@
 """
-src/auditor — Adversarial Financial Auditor (vendored).
+src/auditor: Adversarial Financial Auditor (vendored).
 
 Multi-agent verification layer for structured numeric extraction with
 three layers of defense against shared-blind-spot failures:
 
-  Layer 1 — Heterogeneous models (Hunter Gemini 1.5 Pro, Auditor
+  Layer 1: Heterogeneous models (Hunter Gemini 1.5 Pro, Auditor
             configurable via AUDITOR_MODEL env var).
-  Layer 2 — Deterministic provenance verification (every Hunter-cited
+  Layer 2: Deterministic provenance verification (every Hunter-cited
             value must appear at the cited paragraph in the source).
-  Layer 3 — Consistency checks (extracted primaries must reconcile
+  Layer 3: Consistency checks (extracted primaries must reconcile
             against any margins / growth rates stated in the document).
 
 Public API
@@ -18,8 +18,8 @@ Public API
       LangGraph state with hunter_report, auditor_report, arbiter_decision,
       provenance_report, consistency_anomalies, consensus_met, iterations.
 
-  AgentState — graph state TypedDict (for advanced usage)
-  HunterReport, AuditorReport, ArbiterDecision — Pydantic schemas
+  AgentState: graph state TypedDict (for advanced usage)
+  HunterReport, AuditorReport, ArbiterDecision: Pydantic schemas
 
 Standalone CLI version: github.com/riya0920/adversarial-auditor
 """

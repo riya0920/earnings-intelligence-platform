@@ -289,7 +289,7 @@ def run_multi_doc_query(
         print(f"\n{'─' * 70}")
         print("RANKINGS:")
         for i, r in enumerate(result.rankings, 1):
-            print(f"  {i}. {r['ticker']} (score: {r['score']}/5) — {r['rationale']}")
+            print(f"  {i}. {r['ticker']} (score: {r['score']}/5): {r['rationale']}")
 
     per_company = result.usage.get("per_company_summary", {})
     if per_company:

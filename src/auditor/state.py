@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 # ----------------------------------------------------------------------------
-# Pydantic v2 schemas — used for structured LLM output validation.
+# Pydantic v2 schemas: used for structured LLM output validation.
 # ----------------------------------------------------------------------------
 
 
@@ -86,7 +86,7 @@ class HunterReport(BaseModel):
     ebitda: Optional[FinancialMetric] = None
     net_income: Optional[FinancialMetric] = None
 
-    # Layer 3 — stated ratios and comparison-period values. Optional;
+    # Layer 3: stated ratios and comparison-period values. Optional;
     # populated only when the document explicitly states them.
     gross_margin_pct: Optional[FinancialMetric] = None
     ebitda_margin_pct: Optional[FinancialMetric] = None
@@ -189,9 +189,9 @@ class AgentState(TypedDict, total=False):
     last_error: Annotated[Optional[str], _merge_error_messages]
     error_count: Annotated[int, operator.add]
 
-    # Layer 2 — provenance verification.
+    # Layer 2: provenance verification.
     provenance_report: Optional[dict]
-    # Layer 3 — deterministic consistency checks.
+    # Layer 3: deterministic consistency checks.
     consistency_anomalies: Optional[list]
 
 

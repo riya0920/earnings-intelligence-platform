@@ -6,13 +6,13 @@ Generate the 30-question evaluation set with typed ground truth.
 
 Three buckets, mapped to specific failure modes the eval is designed to surface:
 
-  Bucket A (15 questions) — straightforward current-period extraction.
+  Bucket A (15 questions): straightforward current-period extraction.
     "What was {ticker}'s {metric} in their most recent {form}?"
     Ground truth: latest reported value from XBRL.
     Pass condition: extracted value within 0.5% of XBRL.
     Tests the happy path. Both prose and verified should mostly pass.
 
-  Bucket B (9 questions) — period-disambiguation tests.
+  Bucket B (9 questions): period-disambiguation tests.
     "What was {ticker}'s {metric} in {specific_quarter}?"
     Ground truth: that specific period's value from XBRL.
     Pass condition: extracted value matches the requested period (NOT
@@ -20,7 +20,7 @@ Three buckets, mapped to specific failure modes the eval is designed to surface:
     most prominent number rather than the requested one.
     The "Apple gross profit" failure you saw was this category.
 
-  Bucket C (6 questions) — adversarial traps where the correct answer
+  Bucket C (6 questions): adversarial traps where the correct answer
     is "I cannot extract that" / disputed.
     Two sub-types:
       C1 (3 questions): asking about metrics the company DOESN'T report
@@ -34,7 +34,7 @@ Three buckets, mapped to specific failure modes the eval is designed to surface:
         no period anchor.
 
 The 6 adversarial questions are where verification should beat prose RAG
-hardest — prose RAG has no reason to abstain, while the verified system
+hardest: prose RAG has no reason to abstain, while the verified system
 can flag low confidence or null extractions.
 
 Output: a list[Question] saved as JSON. Each Question has a typed
@@ -100,8 +100,8 @@ def _latest_eip_period_end(ticker: str) -> Optional[str]:
 
     EIP's filings JSON has `filing_date` (the date the form was *filed* with
     the SEC) but no `period_of_report` field. XBRL has `period_end`. There's
-    a structural lag between when a quarter ends and when the 10-Q gets filed
-    — typically 30-60 days. So we approximate the latest period_end EIP knows
+    a structural lag between when a quarter ends and when the 10-Q gets filed:
+    typically 30-60 days. So we approximate the latest period_end EIP knows
     about by subtracting a 90-day buffer from the latest filing_date.
 
     A Bucket A question is valid iff XBRL's period_end <= this cutoff.
@@ -146,7 +146,7 @@ def _bucket_a_questions() -> list[Question]:
       (b) at-or-before EIP's latest filing_date for this ticker.
 
     Without (b), we'd ask about Q2 FY2026 (filed by Apple in May 2026)
-    when EIP only has Q1 indexed — both pipelines would correctly
+    when EIP only has Q1 indexed: both pipelines would correctly
     return Q1 data and be marked wrong by the eval.
     """
     out: list[Question] = []
@@ -283,19 +283,19 @@ def _bucket_b_questions() -> list[Question]:
 def _bucket_c_questions() -> list[Question]:
     """Bucket C: adversarial traps. 6 hand-crafted questions.
 
-    C1 — asks about metrics not reliably reported by the issuer:
-      * "EBITDA" — not GAAP, most companies don't tag it in XBRL.
-      * "Free cash flow" — non-GAAP, same.
-      * "Adjusted operating margin" — definitionally non-standardized.
+    C1: asks about metrics not reliably reported by the issuer:
+      * "EBITDA": not GAAP, most companies don't tag it in XBRL.
+      * "Free cash flow": non-GAAP, same.
+      * "Adjusted operating margin": definitionally non-standardized.
 
-    C2 — period-ambiguous questions:
+    C2: period-ambiguous questions:
       * "What is X's revenue?" with no period qualifier.
-      * "How profitable was X recently?" — vague metric and period.
-      * "Compare X's revenue across quarters" — under-specified.
+      * "How profitable was X recently?": vague metric and period.
+      * "Compare X's revenue across quarters": under-specified.
     """
     out: list[Question] = []
 
-    # C1 — non-reported metrics. Pick three different tickers.
+    # C1: non-reported metrics. Pick three different tickers.
     out.append(Question(
         qid="C1_AAPL_ebitda",
         bucket="C1_not_reported",
@@ -329,7 +329,7 @@ def _bucket_c_questions() -> list[Question]:
                "Correct system declines to extract."),
     ))
 
-    # C2 — period-ambiguous.
+    # C2: period-ambiguous.
     out.append(Question(
         qid="C2_MSFT_revenue_unspec",
         bucket="C2_ambiguous",

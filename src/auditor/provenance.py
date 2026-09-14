@@ -100,7 +100,7 @@ _DOLLAR_RE = re.compile(
 )
 
 # SEC accounting-style parenthesized figures (no $): "( 74,525 )" or
-# "(74,525.0)" — used for negative line items like cogs and operating
+# "(74,525.0)": used for negative line items like cogs and operating
 # expenses in financial statements. These are legitimate candidates for
 # extracted COGS / opex values and should be recognized by provenance.
 _PAREN_NUM_RE = re.compile(
@@ -153,8 +153,8 @@ def enumerate_dollar_candidates(document: str) -> list[DollarCandidate]:
     """Return every dollar figure in the document, with its paragraph.
 
     Recognizes two patterns:
-      1. `$812 million`, `$1.2B`, etc. — explicit dollar sign.
-      2. `( 74,525 )` — SEC accounting-style parenthesized negatives,
+      1. `$812 million`, `$1.2B`, etc.: explicit dollar sign.
+      2. `( 74,525 )`: SEC accounting-style parenthesized negatives,
          common in financial-statements tables for cogs and expenses.
          The absolute value is recorded; provenance verification compares
          against extracted absolute values.
@@ -242,7 +242,7 @@ def verify_metric(
       2. The source_quote (or a normalized form of it) appears in that
          paragraph (or, as a fallback, anywhere in the document).
       3. A dollar figure equal to `value` appears within the cited
-         paragraph (the strongest claim — defeats hallucination).
+         paragraph (the strongest claim: defeats hallucination).
 
     A None value short-circuits to PASSED with reason "metric not extracted."
     A None paragraph_number with a source_quote triggers a document-wide
@@ -283,7 +283,7 @@ def verify_metric(
                     None,
                 )
                 if actual is not None:
-                    # Verbatim found elsewhere — verify the value lives there
+                    # Verbatim found elsewhere: verify the value lives there
                     # too, then accept with a corrected paragraph anchor.
                     found_pnum = actual
                 else:
@@ -429,7 +429,7 @@ def build_dispute_from_provenance(verification: dict) -> str:
     if not failed:
         return ""
     lines = [
-        "PROVENANCE FAILURE — your previous extraction cited values that "
+        "PROVENANCE FAILURE: your previous extraction cited values that "
         "could not be verified against the document. Re-extract and address "
         "each item below explicitly:",
     ]

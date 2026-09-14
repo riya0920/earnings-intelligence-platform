@@ -1,5 +1,5 @@
 """
-Earnings Intelligence Platform — Main Pipeline
+Earnings Intelligence Platform: Main Pipeline
 
 Usage:
     # Step 1: Ingest SEC filings
@@ -144,7 +144,7 @@ def cmd_ragas(config: dict):
     print("\n" + table + "\n")
     print(f"RAGAS results saved to {out_path}")
 
-    # Optional MLflow logging (defensive — never fail the run on tracking).
+    # Optional MLflow logging (defensive: never fail the run on tracking).
     try:
         import mlflow
 
@@ -400,7 +400,7 @@ def cmd_verify(config: dict, question: str):
                 quote = f.source_quote[:90] + "..." if len(f.source_quote) > 90 else f.source_quote
                 print(f"      \"{quote}\"")
     else:
-        print("\n(No quantitative facts extracted — query may be qualitative, "
+        print("\n(No quantitative facts extracted: query may be qualitative, "
               "or no numeric values were present in retrieved chunks.)")
 
     # --- Anomalies -------------------------------------------------------

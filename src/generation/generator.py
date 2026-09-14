@@ -7,7 +7,7 @@ Two generation paths:
 2. Risk Signal Extraction: Structured extraction of risk categories
    from filing sections with severity scoring.
 
-Both paths are designed for evaluation — every generation call
+Both paths are designed for evaluation: every generation call
 returns metadata needed by the RAGAS eval pipeline.
 """
 

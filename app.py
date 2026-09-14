@@ -1,5 +1,5 @@
 """
-Earnings Intelligence Platform — Streamlit Demo
+Earnings Intelligence Platform: Streamlit Demo
 
 Run with: streamlit run app.py
 """
@@ -136,7 +136,7 @@ elif page == "Verified Query":
         "**Quantitative questions with adversarial verification.** "
         "RAG retrieves the relevant chunks; a multi-agent auditor (Hunter + "
         "Forensic Auditor + Arbiter) extracts structured numbers and verifies "
-        "every value against the source via three layers of defense — "
+        "every value against the source via three layers of defense: "
         "heterogeneous models, deterministic provenance, and consistency checks."
     )
 
@@ -189,7 +189,7 @@ elif page == "Verified Query":
             badge_text = {
                 "verified": "✅ VERIFIED",
                 "verified_with_warnings": "⚠️ VERIFIED WITH WARNINGS",
-                "disputed": "❌ DISPUTED — values could not be reconciled",
+                "disputed": "❌ DISPUTED: values could not be reconciled",
             }.get(v.status, "⚠️ UNKNOWN")
             badge_color = {
                 "verified": "#0f7b3d",
@@ -252,7 +252,7 @@ elif page == "Verified Query":
                     "No quantitative facts were extracted. Either this is a "
                     "qualitative question, or the retrieved chunks contained "
                     "no numeric values that the auditor could verify. The "
-                    "prose answer above is the response — it just hasn't been "
+                    "prose answer above is the response: it just hasn't been "
                     "verified by the structured layer."
                 )
 

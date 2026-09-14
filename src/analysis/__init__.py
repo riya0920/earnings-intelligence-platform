@@ -5,14 +5,14 @@ Two analytical capabilities that turn this from a RAG demo into
 a financial intelligence platform:
 
 1. Cross-Company Comparison:
-   Compare risk disclosures across companies — "How does NVIDIA's
+   Compare risk disclosures across companies: "How does NVIDIA's
    AI risk language differ from Microsoft's?" Extracts risk signals
    per company, aligns them by category, and generates comparative
    analysis.
 
 2. Temporal Analysis:
    Track how risk language evolves across filing years for the same
-   company — "What new risks did Meta add in their latest 10-K?"
+   company: "What new risks did Meta add in their latest 10-K?"
    Detects new risks, removed risks, and escalation/de-escalation
    patterns over time.
 
@@ -169,11 +169,11 @@ class CrossCompanyAnalyzer:
 
     COMPARISON_PROMPT = """You are a senior financial analyst comparing risk disclosures between two companies.
 
-COMPANY A: {company_a} ({ticker_a}) — Filing Date: {date_a}
+COMPANY A: {company_a} ({ticker_a}): Filing Date: {date_a}
 Risks:
 {risks_a}
 
-COMPANY B: {company_b} ({ticker_b}) — Filing Date: {date_b}
+COMPANY B: {company_b} ({ticker_b}): Filing Date: {date_b}
 Risks:
 {risks_b}
 

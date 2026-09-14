@@ -8,17 +8,17 @@ Adversarial Logic
 -----------------
 The three primary agents are designed to be *epistemically isolated*:
 
-1. **Hunter (Extractor, Gemini 1.5 Pro)** — Optimistic. Sees only the raw
+1. **Hunter (Extractor, Gemini 1.5 Pro)**: Optimistic. Sees only the raw
    document plus any prior dispute instructions. Reports every numeric
    field it can locate, with verbatim quotes.
 
-2. **Forensic Auditor (Skeptic, Gemini 1.5 Pro)** — Independently re-reads
+2. **Forensic Auditor (Skeptic, Gemini 1.5 Pro)**: Independently re-reads
    the document. Crucially, it **never sees the Hunter's output**. It
    re-derives quantities from primitives (e.g., gross_profit must equal
    revenue minus COGS) and flags any internal inconsistency in the
    document itself.
 
-3. **Arbiter (Judge, GPT-4o-mini)** — Receives both reports but never the
+3. **Arbiter (Judge, GPT-4o-mini)**: Receives both reports but never the
    raw document. It compares numeric fields, computes relative deltas, and
    either declares consensus or emits structured dispute instructions.
    Using a smaller cheaper model here is deliberate: adjudication is a
@@ -62,12 +62,12 @@ logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------
 # Model wiring. We keep this lazy so the module imports cleanly even when
-# API keys are missing — useful for unit tests and CI.
+# API keys are missing: useful for unit tests and CI.
 # ----------------------------------------------------------------------------
 
 
 def _get_hunter_llm() -> Runnable:
-    """Hunter LLM — defaults to Gemini 2.5 Pro for large context + high recall.
+    """Hunter LLM: defaults to Gemini 2.5 Pro for large context + high recall.
 
     Configurable via HUNTER_MODEL environment variable:
       - "gemini-2.5-pro"    (default; replaces retired gemini-1.5-pro)
@@ -78,7 +78,7 @@ def _get_hunter_llm() -> Runnable:
     Note: Gemini 1.5 Pro was retired by Google in 2025 and now returns
     HTTP 404. The default has been updated to gemini-2.5-pro accordingly.
     Setting HUNTER_MODEL=gpt-4o lets you run the entire auditor on the
-    OpenAI key alone — useful when Google API access is unavailable.
+    OpenAI key alone: useful when Google API access is unavailable.
     """
     model = os.getenv("HUNTER_MODEL", "gemini-2.5-pro").strip().lower()
     if model.startswith("gpt-"):
@@ -91,13 +91,13 @@ def _get_hunter_llm() -> Runnable:
 
 
 def _get_auditor_llm() -> Runnable:
-    """Auditor LLM — defaults to Gemini 2.5 Pro for backward compatibility.
+    """Auditor LLM: defaults to Gemini 2.5 Pro for backward compatibility.
 
     Layer 1 (heterogeneous models) is enabled by setting AUDITOR_MODEL to
     a different lab's model:
-      - "gemini-2.5-pro"  (default; same family as Hunter — NOT heterogeneous)
+      - "gemini-2.5-pro"  (default; same family as Hunter, NOT heterogeneous)
       - "gemini-2.5-flash" (cheaper Gemini variant)
-      - "gpt-4o"          (different lab; uses OPENAI_API_KEY) — recommended
+      - "gpt-4o"          (different lab; uses OPENAI_API_KEY), recommended
       - "gpt-4o-mini"     (cheaper; weaker reasoning, useful for ablation)
 
     The architectural argument for setting AUDITOR_MODEL=gpt-4o: when
@@ -116,7 +116,7 @@ def _get_auditor_llm() -> Runnable:
 
 
 def _get_arbiter_llm() -> Runnable:
-    """GPT-4o-mini for the Arbiter — cheap structured comparison."""
+    """GPT-4o-mini for the Arbiter: cheap structured comparison."""
     from langchain_openai import ChatOpenAI
 
     return ChatOpenAI(
@@ -153,29 +153,29 @@ Mandatory rules:
 3. Normalize all dollar values to millions of USD (e.g., "$1.2 billion" -> 1200.0).
    Normalize all percentages to plain percentage points (e.g., "38.7%" -> 38.7).
 4. Include a 1-indexed `paragraph_number` for each quote. Paragraph numbers
-   are explicit in the document — they appear as `[N]` prefixes (e.g. `[3]`)
+   are explicit in the document: they appear as `[N]` prefixes (e.g. `[3]`)
    or as `Paragraph N:` prefixes. Use the integer N exactly as it appears.
 5. NEVER compute, derive, or infer values not literally written in the
    document. If gross_profit is not stated as a line item in the document,
    you MUST return null for gross_profit even if you can compute it from
    revenue and cogs. Computation is the verifier's job, not yours. SEC
    income statements often go directly from "Cost of sales" to "Operating
-   expenses" without a gross-profit line — in that case, gross_profit is null.
+   expenses" without a gross-profit line: in that case, gross_profit is null.
 
 Primary fields (extract reported actuals only; forecasts get null):
   revenue, cogs, gross_profit, ebitda, net_income.
 
 Secondary fields (extract ONLY if the document explicitly states them; do
 NOT compute them yourself):
-  gross_margin_pct        — stated gross margin, e.g. "gross margin of 38.7%"
-  ebitda_margin_pct       — stated EBITDA margin
-  net_margin_pct          — stated net margin
-  yoy_revenue_growth_pct  — stated YoY revenue growth, e.g. "14% YoY growth"
-  prior_period_revenue    — stated prior-quarter or prior-year revenue
+  gross_margin_pct: stated gross margin, e.g. "gross margin of 38.7%"
+  ebitda_margin_pct: stated EBITDA margin
+  net_margin_pct: stated net margin
+  yoy_revenue_growth_pct: stated YoY revenue growth, e.g. "14% YoY growth"
+  prior_period_revenue: stated prior-quarter or prior-year revenue
                              (whichever the document references for comparison)
 
 If a field is not present as a reported actual or is not explicitly stated,
-return `null` for it. Do not infer or compute secondary fields — the
+return `null` for it. Do not infer or compute secondary fields: the
 verification layer will recompute them from the primaries and compare.
 
 Return ONLY valid JSON matching the provided schema. No prose, no markdown.
@@ -205,7 +205,7 @@ Return ONLY valid JSON matching the provided schema. No prose, no markdown.
 
 ARBITER_SYSTEM = """\
 You are the ARBITER. You do NOT read the source document. You compare two
-independent reports — one from the Hunter and one from the Forensic Auditor —
+independent reports, one from the Hunter and one from the Forensic Auditor,
 and decide whether they have reached consensus.
 
 For each metric (revenue, cogs, gross_profit, ebitda, net_income):
@@ -236,14 +236,14 @@ Return ONLY valid JSON matching the provided schema. No prose, no markdown.
 def _lenient_json_loads(text: str, *, raw_text: str = "") -> Any:
     """Parse JSON with a few common LLM-emission tolerances.
 
-    Strict json.loads is the right default — but smaller models occasionally
+    Strict json.loads is the right default, but smaller models occasionally
     emit JSON with trailing commas, Python literal booleans, or smart
     quotes, which json.loads rejects with "Expecting ',' delimiter" or
     similar. Rather than failing the whole audit step over a stylistic
     glitch, we try strict first, then a series of cheap fixes.
 
     Each fix is applied only if strict parse failed, so well-formed JSON
-    is unaffected. We never accept JS-style comments or unquoted keys —
+    is unaffected. We never accept JS-style comments or unquoted keys;
     those usually indicate the model is hallucinating Python rather than
     JSON, and the self-heal retry is the right response there.
     """
@@ -290,7 +290,7 @@ def _openai_structured_invoke(
     langchain-openai's structured-output path tries to send the schema
     via OpenAI's `response_format` JSON-schema mode. That mode requires
     `additionalProperties: false` and `required: [every property]` at
-    every level of the schema — constraints that Pydantic's default
+    every level of the schema: constraints that Pydantic's default
     JSON-schema export doesn't satisfy. The result is a 400 BadRequest
     that no `method=` parameter consistently bypasses across versions.
 
@@ -302,7 +302,7 @@ def _openai_structured_invoke(
     Schema-echo defense
     -------------------
     Smaller models (gpt-4o-mini in particular) sometimes return the JSON
-    Schema itself rather than an instance of it — i.e., they output
+    Schema itself rather than an instance of it, i.e., they output
     `{"description": "...", "properties": {...}}` instead of
     `{"consensus_met": true, ...}`. We construct a minimal "instance
     skeleton" hint alongside the full schema to make the difference
@@ -317,8 +317,8 @@ def _openai_structured_invoke(
     )
     schema_hint = json.dumps(schema_dict, indent=2)
 
-    # Build a minimal instance skeleton — just the required field names with
-    # placeholder values — to disambiguate "what to return" from "the schema".
+    # Build a minimal instance skeleton, just the required field names with
+    # placeholder values, to disambiguate "what to return" from "the schema".
     skeleton: dict = {}
     for k in required_keys:
         prop = schema_dict.get("properties", {}).get(k, {})
@@ -343,7 +343,7 @@ def _openai_structured_invoke(
         f"{system_prompt}\n\n"
         f"=== OUTPUT FORMAT ===\n"
         f"Return a JSON OBJECT (an instance) that conforms to this schema.\n"
-        f"DO NOT return the schema definition itself — return an instance "
+        f"DO NOT return the schema definition itself: return an instance "
         f"with concrete values.\n\n"
         f"SCHEMA (do not return this):\n```json\n{schema_hint}\n```\n\n"
         f"INSTANCE SKELETON (return something shaped like this, with real "
@@ -471,7 +471,7 @@ def _invoke_with_self_heal(
 
 
 def hunter_node(state: AgentState) -> dict:
-    """The Hunter — high-recall extraction with verbatim provenance.
+    """The Hunter: high-recall extraction with verbatim provenance.
 
     Adversarial role: optimistic. The Hunter casts a wide net; the Auditor
     is responsible for skepticism. Decoupling these roles prevents a single
@@ -516,7 +516,7 @@ def hunter_node(state: AgentState) -> dict:
 
 
 def auditor_node(state: AgentState) -> dict:
-    """The Forensic Auditor — independent extraction + recomputation.
+    """The Forensic Auditor: independent extraction + recomputation.
 
     Adversarial role: skeptic. Critically, the Auditor's prompt is
     constructed *without* any reference to the Hunter's output. The state
@@ -562,7 +562,7 @@ def auditor_node(state: AgentState) -> dict:
 
 
 def arbiter_node(state: AgentState) -> dict:
-    """The Arbiter — structured comparison and consensus check.
+    """The Arbiter: structured comparison and consensus check.
 
     Adversarial role: judge. The Arbiter sees only the two reports, never
     the source document. This forces the upstream agents to be the source
@@ -623,7 +623,7 @@ def arbiter_node(state: AgentState) -> dict:
             f"{decision.rationale}"
         )
 
-    # Layer 3 — even if Hunter and Auditor numerically agree, check that
+    # Layer 3: even if Hunter and Auditor numerically agree, check that
     # the agreed values are mutually consistent with stated ratios in the
     # document. A wrong-but-shared anchor (e.g., both grabbed the
     # forecast revenue) shows up here when the document also stated the
@@ -698,7 +698,7 @@ def error_node(state: AgentState) -> dict:
 
 
 # ----------------------------------------------------------------------------
-# Layer 2 — Provenance verifier node.
+# Layer 2: Provenance verifier node.
 #
 # Inserted between the parallel extractors and the Arbiter. The verifier
 # runs deterministic Python (regex + string match) over the Hunter's
@@ -713,7 +713,7 @@ def provenance_verifier_node(state: AgentState) -> dict:
 
     Failure routes back through the dispute path with a Hunter-specific
     instruction enumerating exactly which fields failed and why. The
-    Auditor is unaffected — it does not produce per-metric provenance,
+    Auditor is unaffected: it does not produce per-metric provenance,
     so its report passes through unverified at this layer (Layer 3's
     consistency checks cover the Auditor).
     """
@@ -753,14 +753,14 @@ def provenance_verifier_node(state: AgentState) -> dict:
 
 
 # ----------------------------------------------------------------------------
-# Layer 3 — Deterministic consistency checks.
+# Layer 3: Deterministic consistency checks.
 #
 # Even when Hunter and Auditor agree on the primaries (revenue, cogs,
 # etc.), the document itself may contain stated ratios or growth rates
 # that are inconsistent with those primaries. If the Hunter picked the
 # wrong revenue (e.g., the forecast instead of the actual), and the
 # document also says "gross margin of 38.7%", the recomputed
-# gross_profit/revenue won't match 38.7% — anomaly flagged.
+# gross_profit/revenue won't match 38.7%: anomaly flagged.
 #
 # Math is done in Python, not by the LLM. The LLM's role is extraction,
 # not arithmetic.
@@ -813,7 +813,7 @@ def _consistency_checks(hunter: dict, auditor: dict) -> list[dict]:
                 ),
             })
 
-    # Check 2: gross_margin consistency. The killer Layer 3 check —
+    # Check 2: gross_margin consistency. The killer Layer 3 check:
     # catches anchoring on wrong revenue when the document states the margin.
     if gm_pct is not None and gross_profit is not None and revenue not in (None, 0):
         recomputed_pct = (gross_profit / revenue) * 100.0
@@ -885,7 +885,7 @@ def _consistency_checks(hunter: dict, auditor: dict) -> list[dict]:
     # Check 6: ordering sanity.
     # net_income should not exceed gross_profit (impossible without
     # large non-operating gains, in which case the Hunter should have
-    # extracted them and we'd see ebitda > gross_profit too — that's
+    # extracted them and we'd see ebitda > gross_profit too; that's
     # rare and we treat the violation as a soft anomaly).
     if net_income is not None and gross_profit is not None:
         if net_income > gross_profit * 1.005:
@@ -909,7 +909,7 @@ def _build_consistency_dispute(anomalies: list[dict]) -> str:
     if not anomalies:
         return ""
     lines = [
-        "CONSISTENCY FAILURE — extracted primary values are mathematically "
+        "CONSISTENCY FAILURE: extracted primary values are mathematically "
         "inconsistent with stated ratios or related quantities in the document. "
         "At least one extracted primary is wrong. Re-examine these specifically:",
     ]

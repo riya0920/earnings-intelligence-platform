@@ -1,5 +1,5 @@
 """
-Analysis module — cross-company comparison, temporal analysis,
+Analysis module: cross-company comparison, temporal analysis,
 multi-document QA, and filing change detection.
 """
 

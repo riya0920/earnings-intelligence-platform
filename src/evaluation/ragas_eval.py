@@ -1,8 +1,8 @@
 """
 RAGAS evaluation layer.
 
-Computes the four canonical RAGAS metrics — Faithfulness, Answer Relevancy,
-Context Precision, Context Recall — for each (chunking x retrieval)
+Computes the four canonical RAGAS metrics, Faithfulness, Answer Relevancy,
+Context Precision, Context Recall, for each (chunking x retrieval)
 configuration, over the reference-answer gold set. Uses the real `ragas`
 package (>=0.2) with an OpenAI judge LLM and OpenAI embeddings.
 
@@ -197,11 +197,11 @@ def to_markdown_table(results: List[Dict[str, Any]]) -> str:
 
         def cell(k):
             v = r.get(k)
-            return "—" if v is None else f"{v:.2f}"
+            return "N/A" if v is None else f"{v:.2f}"
 
         mark = "**{}**" if i == 0 else "{}"
         comp = r.get("composite")
-        comp_cell = "—" if comp is None else f"{comp:.3f}"
+        comp_cell = "N/A" if comp is None else f"{comp:.3f}"
         row = (
             f"| {mark.format(r['config'])} "
             f"| {mark.format(cell('faithfulness'))} "

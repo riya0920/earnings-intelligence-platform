@@ -70,27 +70,27 @@ class SECEdgarClient:
     FILING_URL = "https://www.sec.gov/Archives/edgar/data"
 
     # Section header patterns for 10-K parsing
-    # SEC filings use wildly inconsistent formatting: "ITEM 1A.", "Item 1A—",
+    # SEC filings use wildly inconsistent formatting: "ITEM 1A.", "Item 1A\u2014",
     # "Item\xa01A -", unicode dashes, non-breaking spaces, ALL CAPS, etc.
     # These patterns are intentionally broad to handle real-world variation.
     SECTION_PATTERNS = {
         "risk_factors": [
-            r"item[\s\xa0]*1[\s\xa0]*a[\s\.\-—–:]*[\s\xa0]*risk[\s\xa0]+factors",
-            r"ITEM[\s\xa0]*1A[\s\.\-—–:]*[\s\xa0]*RISK[\s\xa0]+FACTORS",
+            r"item[\s\xa0]*1[\s\xa0]*a[\s\.\-\u2014–:]*[\s\xa0]*risk[\s\xa0]+factors",
+            r"ITEM[\s\xa0]*1A[\s\.\-\u2014–:]*[\s\xa0]*RISK[\s\xa0]+FACTORS",
             r"risk[\s\xa0]+factors\s*\n",
         ],
         "mda": [
-            r"item[\s\xa0]*7[\s\.\-—–:]*[\s\xa0]*management[\s\xa0''].{0,15}discussion",
-            r"ITEM[\s\xa0]*7[\s\.\-—–:]*[\s\xa0]*MANAGEMENT",
+            r"item[\s\xa0]*7[\s\.\-\u2014–:]*[\s\xa0]*management[\s\xa0''].{0,15}discussion",
+            r"ITEM[\s\xa0]*7[\s\.\-\u2014–:]*[\s\xa0]*MANAGEMENT",
             r"management.{0,5}s?\s+discussion\s+and\s+analysis",
         ],
         "business_overview": [
-            r"item[\s\xa0]*1[\s\.\-—–:]*[\s\xa0]*business\b(?![\s\xa0]*combination)",
-            r"ITEM[\s\xa0]*1[\s\.\-—–:]*[\s\xa0]*BUSINESS\b",
+            r"item[\s\xa0]*1[\s\.\-\u2014–:]*[\s\xa0]*business\b(?![\s\xa0]*combination)",
+            r"ITEM[\s\xa0]*1[\s\.\-\u2014–:]*[\s\xa0]*BUSINESS\b",
         ],
         "financial_statements": [
-            r"item[\s\xa0]*8[\s\.\-—–:]*[\s\xa0]*financial[\s\xa0]+statements",
-            r"ITEM[\s\xa0]*8[\s\.\-—–:]*[\s\xa0]*FINANCIAL[\s\xa0]+STATEMENTS",
+            r"item[\s\xa0]*8[\s\.\-\u2014–:]*[\s\xa0]*financial[\s\xa0]+statements",
+            r"ITEM[\s\xa0]*8[\s\.\-\u2014–:]*[\s\xa0]*FINANCIAL[\s\xa0]+STATEMENTS",
             r"consolidated\s+statements?\s+of\s+(?:operations|income|comprehensive)",
         ],
     }
@@ -98,14 +98,14 @@ class SECEdgarClient:
     # Patterns for the START of the next section (to know where current ends)
     # Must handle: "Item 1A.", "ITEM 2.", "Item\xa07.", etc.
     NEXT_SECTION_PATTERN = re.compile(
-        r"\n\s*(?:item|ITEM)[\s\xa0]*\d+[a-zA-Z]?[\s\.\-—–:]+",
+        r"\n\s*(?:item|ITEM)[\s\xa0]*\d+[a-zA-Z]?[\s\.\-\u2014–:]+",
         re.MULTILINE,
     )
 
     def __init__(self, user_agent: str, rate_limit_delay: float = 0.12):
         """
         Args:
-            user_agent: Required by SEC — format "Company/App contact@email.com"
+            user_agent: Required by SEC. Format "Company/App contact@email.com"
             rate_limit_delay: Seconds between requests (SEC limit: 10/sec)
         """
         self.user_agent = user_agent
@@ -260,7 +260,7 @@ class SECEdgarClient:
                     # Only use next_item boundary if we got meaningful content
                     content = remaining[: next_item.start()]
                 elif next_item and next_item.start() <= 200:
-                    # Too short — the match might be a ToC entry, skip it
+                    # Too short: the match might be a ToC entry, skip it
                     # Try finding the SECOND occurrence of this pattern
                     second_match = re.search(
                         pattern, text[match.end() :], re.IGNORECASE | re.MULTILINE
